@@ -181,4 +181,5 @@ export const translations = {
   },
 } as const;
 
-export type TranslationKey = typeof translations.en;
+type DeepStringify<T> = T extends string ? string : { [K in keyof T]: DeepStringify<T[K]> };
+export type TranslationKey = DeepStringify<typeof translations.en>;
