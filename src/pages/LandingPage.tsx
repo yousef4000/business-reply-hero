@@ -138,6 +138,8 @@ export default function LandingPage() {
           © 2026 {t.app.name}. {locale === "en" ? "All rights reserved." : "جميع الحقوق محفوظة."}
         </div>
       </footer>
+
+      <UpgradeModal open={!!upgradePlan} onOpenChange={(o) => !o && setUpgradePlan(null)} plan={upgradePlan} />
     </div>
   );
 }
