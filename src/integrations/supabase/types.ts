@@ -108,6 +108,15 @@ export type Database = {
           used: number
         }[]
       }
+      my_usage_status: {
+        Args: never
+        Returns: {
+          period_start: string
+          plan: Database["public"]["Enums"]["plan_tier"]
+          plan_limit: number
+          used: number
+        }[]
+      }
       plan_monthly_limit: {
         Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
         Returns: number
