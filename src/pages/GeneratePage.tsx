@@ -153,7 +153,7 @@ export default function GeneratePage() {
     if (ok) {
       setCopiedStyle(style);
       setTimeout(() => setCopiedStyle(null), 2000);
-      toast({ title: t.generate.copied });
+      toast({ title: locale === "ar" ? "تم النسخ ✅" : "Copied ✅" });
     }
   };
 
