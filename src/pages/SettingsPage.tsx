@@ -141,6 +141,8 @@ export default function SettingsPage() {
         </div>
         <Button variant="outline" className="w-full text-destructive">{t.settings.signOut}</Button>
       </div>
+
+      <UpgradeModal open={!!upgradePlan} onOpenChange={(o) => !o && setUpgradePlan(null)} plan={upgradePlan} />
     </div>
   );
 }
