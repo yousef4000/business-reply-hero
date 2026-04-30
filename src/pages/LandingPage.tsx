@@ -113,11 +113,19 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button className="mt-5 w-full" variant={isPro ? "default" : "outline"} asChild>
-                  <Link to={plan === "business" ? "/app/settings" : "/app/generate"}>
+                {plan === "free" ? (
+                  <Button className="mt-5 w-full" variant="outline" asChild>
+                    <Link to="/app/generate">{t.plans.cta[plan]}</Link>
+                  </Button>
+                ) : (
+                  <Button
+                    className="mt-5 w-full"
+                    variant={isPro ? "default" : "outline"}
+                    onClick={() => setUpgradePlan(plan)}
+                  >
                     {t.plans.cta[plan]}
-                  </Link>
-                </Button>
+                  </Button>
+                )}
               </div>
             );
           })}
