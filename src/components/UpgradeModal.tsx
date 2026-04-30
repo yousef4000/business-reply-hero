@@ -1,7 +1,22 @@
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
+import { useState } from "react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageContext";
-import { MessageCircle, Clock } from "lucide-react";
+import { MessageCircle, Clock, ShoppingBag, RotateCcw, Loader2 } from "lucide-react";
+import { toast } from "sonner";
+import {
+  isBillingAvailable,
+  purchasePlan,
+  restorePurchases,
+  type PaidPlan,
+} from "@/lib/billing";
 
 // Configurable WhatsApp support number (international format, no '+' or spaces)
 export const WHATSAPP_SUPPORT_NUMBER = "201000000000";
@@ -17,12 +32,15 @@ interface UpgradeModalProps {
 export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
   const { t, locale } = useLanguage();
   const isAr = locale === "ar";
+  const [busy, setBusy] = useState<"buy" | "restore" | null>(null);
 
   if (!plan) return null;
 
   const planName = t.plans[plan];
   const price = t.plans.price[plan];
   const limit = t.plans.limits[plan];
+  const billingOn = isBillingAvailable();
+  const isPaidPlan = plan !== "free";
 
   const waMessage = isAr
     ? `مرحبًا، أريد ترقية حسابي إلى خطة ${planName} في تطبيق ${t.app.name}.`
@@ -33,6 +51,73 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
   const handleWhatsApp = () => {
     window.open(waUrl, "_blank", "noopener,noreferrer");
     onOpenChange(false);
+  };
+
+  const handleBuy = async () => {
+    if (!isPaidPlan) return;
+    setBusy("buy");
+    try {
+      const res = await purchasePlan(plan as PaidPlan);
+      switch (res.status) {
+        case "success":
+          toast.success(isAr ? "تم تفعيل خطتك بنجاح ✅" : "Plan activated ✅");
+          onOpenChange(false);
+          break;
+        case "pending":
+          toast(
+            isAr
+              ? "تم استلام عملية الشراء، جاري التحقق…"
+              : "Purchase received, verifying…",
+          );
+          onOpenChange(false);
+          break;
+        case "cancelled":
+          toast(isAr ? "تم إلغاء عملية الدفع." : "Payment cancelled.");
+          break;
+        case "unsupported":
+          toast.error(
+            isAr
+              ? "الدفع متاح فقط داخل تطبيق Android."
+              : "Payment is available only inside the Android app.",
+          );
+          break;
+        default:
+          toast.error(
+            isAr
+              ? "تعذر إتمام الدفع، حاول مرة أخرى."
+              : "Payment failed, please try again.",
+          );
+      }
+    } finally {
+      setBusy(null);
+    }
+  };
+
+  const handleRestore = async () => {
+    setBusy("restore");
+    try {
+      const { restored, results } = await restorePurchases();
+      if (results[0]?.status === "unsupported") {
+        toast.error(
+          isAr
+            ? "الاستعادة متاحة فقط على Android."
+            : "Restore is only available on Android.",
+        );
+      } else if (restored > 0) {
+        toast.success(
+          isAr ? "تمت استعادة مشترياتك بنجاح." : "Purchases restored.",
+        );
+        onOpenChange(false);
+      } else {
+        toast(
+          isAr
+            ? "لا توجد مشتريات للاستعادة."
+            : "No purchases to restore.",
+        );
+      }
+    } finally {
+      setBusy(null);
+    }
   };
 
   return (
@@ -61,7 +146,9 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
             </span>
             <span className="font-semibold">
               {price}
-              <span className="text-xs text-muted-foreground">/{isAr ? "شهر" : "mo"}</span>
+              <span className="text-xs text-muted-foreground">
+                /{isAr ? "شهر" : "mo"}
+              </span>
             </span>
           </div>
           <div className="flex items-center justify-between">
@@ -74,19 +161,64 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
           </div>
         </div>
 
-        {/* Payment-soon notice */}
+        {/* Notice */}
         <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground leading-relaxed">
-          {isAr
-            ? "الدفع الإلكتروني قريبًا. حاليًا يمكنك التواصل عبر واتساب لتفعيل الخطة يدويًا."
-            : "Online payment is being prepared. For now, contact us via WhatsApp to activate your plan manually."}
+          {billingOn
+            ? isAr
+              ? "الدفع آمن عبر Google Play. يمكنك إلغاء الاشتراك من إعدادات Google Play في أي وقت."
+              : "Secure payment via Google Play. You can cancel from Google Play settings anytime."
+            : isAr
+              ? "الدفع الإلكتروني متاح داخل تطبيق Android. حاليًا يمكنك التواصل عبر واتساب لتفعيل الخطة."
+              : "Online payment is available inside the Android app. For now, contact us via WhatsApp."}
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
-          <Button onClick={handleWhatsApp} className="w-full gap-2 bg-[#25D366] hover:bg-[#1ebe57] text-white">
-            <MessageCircle className="h-4 w-4" />
-            {isAr ? "تواصل عبر واتساب للتفعيل" : "Contact via WhatsApp"}
-          </Button>
-          <Button variant="outline" onClick={() => onOpenChange(false)} className="w-full gap-2">
+          {billingOn && isPaidPlan && (
+            <Button
+              onClick={handleBuy}
+              disabled={busy !== null}
+              className="w-full gap-2"
+            >
+              {busy === "buy" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <ShoppingBag className="h-4 w-4" />
+              )}
+              {isAr ? "شراء عبر Google Play" : "Buy via Google Play"}
+            </Button>
+          )}
+
+          {billingOn && (
+            <Button
+              variant="outline"
+              onClick={handleRestore}
+              disabled={busy !== null}
+              className="w-full gap-2"
+            >
+              {busy === "restore" ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : (
+                <RotateCcw className="h-4 w-4" />
+              )}
+              {isAr ? "استعادة المشتريات" : "Restore purchases"}
+            </Button>
+          )}
+
+          {!billingOn && (
+            <Button
+              onClick={handleWhatsApp}
+              className="w-full gap-2 bg-[#25D366] hover:bg-[#1ebe57] text-white"
+            >
+              <MessageCircle className="h-4 w-4" />
+              {isAr ? "تواصل عبر واتساب للتفعيل" : "Contact via WhatsApp"}
+            </Button>
+          )}
+
+          <Button
+            variant="ghost"
+            onClick={() => onOpenChange(false)}
+            className="w-full gap-2"
+          >
             <Clock className="h-4 w-4" />
             {isAr ? "لاحقًا" : "Later"}
           </Button>
