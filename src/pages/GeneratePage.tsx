@@ -10,6 +10,9 @@ import { copyToClipboard, shareContent } from "@/lib/share";
 import { Sparkles, Copy, Share2, Heart, BookmarkPlus, RefreshCw, Minimize2, Maximize2, Megaphone, Check, Brain, MessageSquare, Target, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useUsage, getGuestUsage, bumpGuestUsage, GUEST_LIMIT } from "@/hooks/use-usage";
+import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
+import { Progress } from "@/components/ui/progress";
 
 const platforms = ["whatsapp", "instagram", "messenger", "email", "chat"] as const;
 const tones = ["professional", "friendly", "casual", "persuasive", "empathetic"] as const;
