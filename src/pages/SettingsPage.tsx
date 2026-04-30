@@ -7,12 +7,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Globe, User, Building2, CreditCard } from "lucide-react";
+import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
 
 const tones = ["professional", "friendly", "casual", "persuasive", "empathetic"] as const;
 
 export default function SettingsPage() {
   const { t, locale, setLocale } = useLanguage();
   const { toast } = useToast();
+  const [upgradePlan, setUpgradePlan] = useState<PlanKey | null>(null);
 
   const [profile, setProfile] = useState({
     businessName: "",
@@ -124,8 +126,11 @@ export default function SettingsPage() {
             <p className="text-sm font-medium">{t.settings.currentPlan}: <span className="text-primary">{t.plans.free}</span></p>
             <p className="text-xs text-muted-foreground">12 {t.settings.of} 25 {t.settings.repliesUsed}</p>
           </div>
-          <Button variant="outline" size="sm">{t.settings.upgrade}</Button>
+          <Button variant="outline" size="sm" onClick={() => setUpgradePlan("pro")}>{t.settings.upgrade}</Button>
         </div>
+        <p className="text-[11px] text-muted-foreground">
+          {locale === "ar" ? "الدفع الإلكتروني قريبًا" : "Online payment coming soon"}
+        </p>
       </div>
 
       {/* Account */}
@@ -136,6 +141,8 @@ export default function SettingsPage() {
         </div>
         <Button variant="outline" className="w-full text-destructive">{t.settings.signOut}</Button>
       </div>
+
+      <UpgradeModal open={!!upgradePlan} onOpenChange={(o) => !o && setUpgradePlan(null)} plan={upgradePlan} />
     </div>
   );
 }

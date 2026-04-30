@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Sparkles, MessageSquare, Globe, Shield, Zap, Star } from "lucide-react";
+import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
 
 export default function LandingPage() {
   const { t, locale, setLocale } = useLanguage();
+  const [upgradePlan, setUpgradePlan] = useState<PlanKey | null>(null);
 
   const features = [
     { icon: MessageSquare, title: locale === "en" ? "Multi-Platform" : "متعدد المنصات", desc: locale === "en" ? "WhatsApp, Instagram, Messenger, Email & more" : "واتساب، إنستغرام، ماسنجر، بريد إلكتروني والمزيد" },
@@ -110,11 +113,19 @@ export default function LandingPage() {
                     </li>
                   ))}
                 </ul>
-                <Button className="mt-5 w-full" variant={isPro ? "default" : "outline"} asChild>
-                  <Link to={plan === "business" ? "/app/settings" : "/app/generate"}>
+                {plan === "free" ? (
+                  <Button className="mt-5 w-full" variant="outline" asChild>
+                    <Link to="/app/generate">{t.plans.cta[plan]}</Link>
+                  </Button>
+                ) : (
+                  <Button
+                    className="mt-5 w-full"
+                    variant={isPro ? "default" : "outline"}
+                    onClick={() => setUpgradePlan(plan)}
+                  >
                     {t.plans.cta[plan]}
-                  </Link>
-                </Button>
+                  </Button>
+                )}
               </div>
             );
           })}
@@ -127,6 +138,8 @@ export default function LandingPage() {
           © 2026 {t.app.name}. {locale === "en" ? "All rights reserved." : "جميع الحقوق محفوظة."}
         </div>
       </footer>
+
+      <UpgradeModal open={!!upgradePlan} onOpenChange={(o) => !o && setUpgradePlan(null)} plan={upgradePlan} />
     </div>
   );
 }
