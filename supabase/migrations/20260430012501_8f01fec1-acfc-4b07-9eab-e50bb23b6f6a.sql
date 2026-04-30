@@ -1,0 +1,2 @@
+REVOKE EXECUTE ON FUNCTION public.apply_verified_purchase(uuid, plan_tier, text, text, text, timestamptz, timestamptz, boolean, jsonb) FROM PUBLIC, anon, authenticated;
+GRANT EXECUTE ON FUNCTION public.apply_verified_purchase(uuid, plan_tier, text, text, text, timestamptz, timestamptz, boolean, jsonb) TO service_role;
