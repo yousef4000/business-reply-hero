@@ -228,14 +228,26 @@ You must call the generate_reply function with your analysis and 3 reply options
                   replies: {
                     type: "object",
                     properties: {
-                      soft: { type: "string" },
-                      persuasive: { type: "string" },
-                      directClosing: { type: "string" },
+                      soft: {
+                        type: "string",
+                        description: "لطيف — Empathetic, low-pressure reply. Acknowledges the concern warmly, lowers hesitation, ends with a soft, friendly CTA. Same language as the customer message. No filler.",
+                      },
+                      persuasive: {
+                        type: "string",
+                        description: "مقنع — Value-focused reply. Empathy + concrete value reframe + reduce hesitation + soft CTA. Confident, not pushy. Same language as the customer message. No exaggeration.",
+                      },
+                      directClosing: {
+                        type: "string",
+                        description: "إغلاق مباشر — Warm but action-oriented reply that proposes the concrete next step (book, choose package, send details). One clear CTA. Same language as the customer message.",
+                      },
                     },
                     required: ["soft", "persuasive", "directClosing"],
                   },
-                  leadTemperature: { type: "string", enum: ["hot", "warm", "cold"] },
-                  followUp: { type: "string" },
+                  leadTemperature: { type: "string", enum: ["hot", "warm", "cold"], description: "How likely this lead is to convert based on the message" },
+                  followUp: {
+                    type: "string",
+                    description: "SHORT internal note for the business owner (NOT sent to customer). Specific to this conversation, references what the customer actually said, and proposes a concrete next action. One sentence in the interface language. NEVER generic.",
+                  },
                 },
                 required: ["classification", "replies", "leadTemperature", "followUp"],
               },
