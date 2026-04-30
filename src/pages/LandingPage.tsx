@@ -18,6 +18,31 @@ export default function LandingPage() {
     { icon: Sparkles, title: locale === "en" ? "Smart Actions" : "إجراءات ذكية", desc: locale === "en" ? "Rewrite, shorten, expand, persuade" : "إعادة كتابة، اختصار، توسيع، إقناع" },
   ];
 
+  const audiences = [
+    { icon: Store, label: locale === "ar" ? "المتاجر" : "Stores" },
+    { icon: Dumbbell, label: locale === "ar" ? "الجيمات والمدربين" : "Gyms & Trainers" },
+    { icon: Stethoscope, label: locale === "ar" ? "العيادات" : "Clinics" },
+    { icon: GraduationCap, label: locale === "ar" ? "الكورسات" : "Courses" },
+    { icon: Building2, label: locale === "ar" ? "العقارات" : "Real Estate" },
+    { icon: Briefcase, label: locale === "ar" ? "الخدمات" : "Services" },
+  ];
+
+  const heroTitle = locale === "ar"
+    ? "حوّل رسائل العملاء إلى ردود جاهزة تقفل البيع"
+    : "Turn customer messages into ready replies that close the sale";
+  const heroSub = locale === "ar"
+    ? "مساعد ذكي يكتب لك ردودًا عربية احترافية لواتساب، إنستغرام، ماسنجر والبريد — مناسب للمتاجر، الجيمات، العيادات، الكورسات والخدمات."
+    : "A smart assistant that writes professional replies for WhatsApp, Instagram, Messenger and Email — built for stores, gyms, clinics, courses, and services.";
+  const ctaPrimary = locale === "ar" ? "جرّب 15 ردًا مجانًا" : "Try 15 replies free";
+  const ctaSecondary = locale === "ar" ? "شاهد مثالًا" : "See an example";
+
+  const exampleCustomer = locale === "ar"
+    ? "السعر غالي"
+    : "The price is too expensive";
+  const exampleReply = locale === "ar"
+    ? "فاهمك جدًا، لكن الفكرة إنك مش بتدفع مقابل الخدمة فقط، أنت بتدفع مقابل نتيجة ومتابعة توفر عليك وقت وتجربة عشوائية. تحب أشرح لك أنسب باقة حسب احتياجك؟"
+    : "I totally understand — but you're not paying for the service alone, you're paying for results and follow-up that save you time and trial-and-error. Want me to suggest the best package for you?";
+
   return (
     <div className="min-h-screen bg-background">
       {/* Navbar */}
