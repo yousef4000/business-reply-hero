@@ -166,7 +166,17 @@ export default function GeneratePage() {
 
   return (
     <div className="mobile-container space-y-5 animate-slide-up">
-      <h1 className="text-xl font-bold">{t.generate.title}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold">{t.generate.title}</h1>
+        {!usage.loading && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {usage.used} / {usage.limit} {locale === "ar" ? "رد" : "replies"}
+          </span>
+        )}
+      </div>
+      {!usage.loading && (
+        <Progress value={Math.min(100, (usage.used / Math.max(1, usage.limit)) * 100)} className="h-1.5" />
+      )}
 
       {/* Form */}
       <div className="space-y-4">
