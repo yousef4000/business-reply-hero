@@ -252,11 +252,25 @@ export default function GeneratePage() {
       {error && (
         <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm text-destructive font-medium">{error}</p>
-            <Button variant="outline" size="sm" className="mt-2" onClick={handleGenerate}>
-              {t.common.retry}
-            </Button>
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {limitReached ? (
+                usage.isGuest ? (
+                  <Button variant="default" size="sm" asChild>
+                    <a href="/signin">{locale === "ar" ? "تسجيل الدخول" : "Sign in"}</a>
+                  </Button>
+                ) : (
+                  <Button variant="default" size="sm" onClick={() => setUpgradeOpen(true)}>
+                    {locale === "ar" ? "ترقية الخطة" : "Upgrade Plan"}
+                  </Button>
+                )
+              ) : (
+                <Button variant="outline" size="sm" onClick={handleGenerate}>
+                  {t.common.retry}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
