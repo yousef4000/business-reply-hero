@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Sparkles, MessageSquare, Globe, Shield, Zap, Star } from "lucide-react";
+import { Sparkles, MessageSquare, Globe, Shield, Zap, Star, Store, Dumbbell, Stethoscope, GraduationCap, Building2, Briefcase, Quote } from "lucide-react";
 import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
 
 export default function LandingPage() {
