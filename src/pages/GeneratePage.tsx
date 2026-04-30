@@ -395,6 +395,12 @@ export default function GeneratePage() {
           </div>
         </div>
       )}
+
+      <UpgradeModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        plan={(usage.plan === "guest" || usage.plan === "free" ? "pro" : usage.plan === "starter" ? "pro" : usage.plan === "pro" ? "business" : "business") as PlanKey}
+      />
     </div>
   );
 }
