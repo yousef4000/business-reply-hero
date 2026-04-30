@@ -69,6 +69,9 @@ export default function GeneratePage() {
   const [selectedStyle, setSelectedStyle] = useState<"soft" | "persuasive" | "directClosing">("persuasive");
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const usage = useUsage();
 
   const getBusinessProfile = () => {
     try {
@@ -79,10 +82,29 @@ export default function GeneratePage() {
     }
   };
 
+  const limitMessage =
+    locale === "ar"
+      ? "لقد استخدمت كل الردود المتاحة في خطتك هذا الشهر. قم بالترقية للمتابعة."
+      : "You've used all your replies for this month. Upgrade to continue.";
+
+  const guestLimitMessage =
+    locale === "ar"
+      ? `لقد استخدمت ${GUEST_LIMIT} ردود كزائر. سجّل الدخول للحصول على المزيد.`
+      : `You've used your ${GUEST_LIMIT} guest replies. Sign in to get more.`;
+
   const handleGenerate = async () => {
     if (!customerMessage.trim()) return;
+
+    if (!usage.loading && usage.used >= usage.limit) {
+      setLimitReached(true);
+      setError(usage.isGuest ? guestLimitMessage : limitMessage);
+      if (!usage.isGuest) setUpgradeOpen(true);
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
+    setLimitReached(false);
     setResult(null);
 
     try {
@@ -95,14 +117,28 @@ export default function GeneratePage() {
           customerMessage,
           language: locale,
           businessProfile: getBusinessProfile(),
+          guestUsage: usage.isGuest ? getGuestUsage() : undefined,
         },
       });
+
+      const payload = (data ?? (fnError as any)?.context?.body) as any;
+      const code = payload?.code || payload?.error;
+
+      if (code === "USAGE_LIMIT_REACHED" || code === "GUEST_LIMIT_REACHED") {
+        setLimitReached(true);
+        setError(code === "GUEST_LIMIT_REACHED" ? guestLimitMessage : limitMessage);
+        if (code === "USAGE_LIMIT_REACHED") setUpgradeOpen(true);
+        return;
+      }
 
       if (fnError) throw new Error(fnError.message || "Generation failed");
       if (data?.error) throw new Error(data.error);
 
       setResult(data as GenerationResult);
       setSelectedStyle("persuasive");
+
+      if (usage.isGuest) bumpGuestUsage();
+      usage.refresh();
     } catch (err: any) {
       console.error("Generation error:", err);
       setError(err.message || "Something went wrong");
