@@ -14,6 +14,57 @@ export type Database = {
   }
   public: {
     Tables: {
+      play_purchases: {
+        Row: {
+          auto_renewing: boolean | null
+          created_at: string
+          expiry_time: string | null
+          id: string
+          order_id: string | null
+          plan: Database["public"]["Enums"]["plan_tier"]
+          platform: string
+          product_id: string
+          purchase_time: string | null
+          purchase_token: string
+          raw: Json | null
+          status: string
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          auto_renewing?: boolean | null
+          created_at?: string
+          expiry_time?: string | null
+          id?: string
+          order_id?: string | null
+          plan: Database["public"]["Enums"]["plan_tier"]
+          platform?: string
+          product_id: string
+          purchase_time?: string | null
+          purchase_token: string
+          raw?: Json | null
+          status?: string
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          auto_renewing?: boolean | null
+          created_at?: string
+          expiry_time?: string | null
+          id?: string
+          order_id?: string | null
+          plan?: Database["public"]["Enums"]["plan_tier"]
+          platform?: string
+          product_id?: string
+          purchase_time?: string | null
+          purchase_token?: string
+          raw?: Json | null
+          status?: string
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -73,6 +124,20 @@ export type Database = {
       [_ in never]: never
     }
     Functions: {
+      apply_verified_purchase: {
+        Args: {
+          _auto_renewing: boolean
+          _expiry_time: string
+          _order_id: string
+          _plan: Database["public"]["Enums"]["plan_tier"]
+          _product_id: string
+          _purchase_time: string
+          _purchase_token: string
+          _raw: Json
+          _user_id: string
+        }
+        Returns: undefined
+      }
       consume_reply_credit: {
         Args: { _user_id: string }
         Returns: {
