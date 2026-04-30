@@ -71,6 +71,7 @@ export default function GeneratePage() {
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [showAllOptions, setShowAllOptions] = useState(false);
   const usage = useUsage();
 
   const getBusinessProfile = () => {
@@ -153,7 +154,7 @@ export default function GeneratePage() {
     if (ok) {
       setCopiedStyle(style);
       setTimeout(() => setCopiedStyle(null), 2000);
-      toast({ title: t.generate.copied });
+      toast({ title: locale === "ar" ? "تم النسخ ✅" : "Copied ✅" });
     }
   };
 
@@ -334,65 +335,96 @@ export default function GeneratePage() {
               {result.replies[selectedStyle]}
             </p>
 
-            {/* Actions */}
-            <div className="flex flex-wrap gap-2 pt-2 border-t border-border">
+            {/* Actions: primary copy + compact icon buttons */}
+            <div className="flex items-center gap-2 pt-2 border-t border-border">
               <Button
-                variant="outline"
                 size="sm"
                 onClick={() => handleCopy(result.replies[selectedStyle], selectedStyle)}
-                className="gap-1.5"
+                className="flex-1 gap-1.5 h-9"
               >
-                {copiedStyle === selectedStyle ? <Check className="h-3.5 w-3.5" /> : <Copy className="h-3.5 w-3.5" />}
-                {copiedStyle === selectedStyle ? t.generate.copied : t.generate.copy}
+                {copiedStyle === selectedStyle ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
+                <span className="text-sm font-medium">
+                  {copiedStyle === selectedStyle ? (locale === "ar" ? "تم النسخ" : "Copied") : (locale === "ar" ? "نسخ" : "Copy")}
+                </span>
               </Button>
-              <Button variant="outline" size="sm" onClick={() => handleShare(result.replies[selectedStyle])} className="gap-1.5">
-                <Share2 className="h-3.5 w-3.5" />{t.generate.share}
+              <Button
+                variant="outline"
+                size="icon"
+                onClick={() => handleShare(result.replies[selectedStyle])}
+                className="h-9 w-9 shrink-0"
+                aria-label={t.generate.share}
+                title={t.generate.share}
+              >
+                <Share2 className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <Heart className="h-3.5 w-3.5" />{t.generate.favorite}
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                aria-label={t.generate.favorite}
+                title={t.generate.favorite}
+              >
+                <Heart className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="sm" className="gap-1.5">
-                <BookmarkPlus className="h-3.5 w-3.5" />{t.generate.save}
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                aria-label={t.generate.save}
+                title={t.generate.save}
+              >
+                <BookmarkPlus className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          {/* All 3 replies preview */}
-          <details className="group">
-            <summary className="text-xs font-medium text-muted-foreground cursor-pointer hover:text-foreground transition-colors">
-              {locale === "en" ? "View all 3 options" : "عرض الخيارات الثلاثة"}
-            </summary>
-            <div className="mt-3 space-y-3">
-              {(["soft", "persuasive", "directClosing"] as const).map((style) => (
-                <div
-                  key={style}
-                  className={`rounded-lg border p-3 cursor-pointer transition-colors ${
-                    selectedStyle === style ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                  }`}
-                  onClick={() => setSelectedStyle(style)}
-                >
-                  <div className="flex items-center justify-between mb-1.5">
-                    <span className="text-xs font-semibold text-primary">{styleLabels[style]}</span>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-7 w-7 p-0"
-                      onClick={(e) => { e.stopPropagation(); handleCopy(result.replies[style], style); }}
-                    >
-                      {copiedStyle === style ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
-                    </Button>
+          {/* All 3 replies preview - controlled, no layout jumps */}
+          <div className="rounded-lg border border-border bg-card/50">
+            <button
+              type="button"
+              onClick={() => setShowAllOptions((v) => !v)}
+              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+              aria-expanded={showAllOptions}
+            >
+              <span>{locale === "ar" ? "عرض الخيارات الثلاثة" : "View all 3 options"}</span>
+              <span className="text-[10px]">{showAllOptions ? "▲" : "▼"}</span>
+            </button>
+            {showAllOptions && (
+              <div className="px-3 pb-3 space-y-2">
+                {(["soft", "persuasive", "directClosing"] as const).map((style) => (
+                  <div
+                    key={style}
+                    className={`rounded-lg border p-3 cursor-pointer transition-colors ${
+                      selectedStyle === style ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
+                    }`}
+                    onClick={() => setSelectedStyle(style)}
+                  >
+                    <div className="flex items-center justify-between mb-1.5">
+                      <span className="text-xs font-semibold text-primary">{styleLabels[style]}</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-7 w-7 p-0"
+                        onClick={(e) => { e.stopPropagation(); handleCopy(result.replies[style], style); }}
+                      >
+                        {copiedStyle === style ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
+                      </Button>
+                    </div>
+                    <p className="text-sm leading-relaxed" dir="auto">{result.replies[style]}</p>
                   </div>
-                  <p className="text-sm leading-relaxed" dir="auto">{result.replies[style]}</p>
-                </div>
-              ))}
-            </div>
-          </details>
+                ))}
+              </div>
+            )}
+          </div>
 
           {/* Follow-up */}
           <div className="rounded-lg border border-border bg-muted/50 p-3">
             <p className="text-xs font-medium text-muted-foreground mb-1">{t.generate.followUp}</p>
-            <p className="text-sm">{result.followUp}</p>
+            <p className="text-sm leading-relaxed">{result.followUp}</p>
           </div>
+
+          {/* Bottom spacer so nothing hides behind bottom nav */}
+          <div className="h-6" aria-hidden />
         </div>
       )}
 
