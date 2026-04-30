@@ -2,15 +2,19 @@ import { useLanguage } from "@/i18n/LanguageContext";
 import { Link } from "react-router-dom";
 import { Sparkles, Clock, Heart, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { useUsage } from "@/hooks/use-usage";
 
 export default function Dashboard() {
   const { t, locale } = useLanguage();
+  const usage = useUsage();
+  const usagePct = Math.min(100, (usage.used / Math.max(1, usage.limit)) * 100);
 
   const stats = [
-    { label: locale === "en" ? "Replies Today" : "ردود اليوم", value: "12", icon: Sparkles, color: "text-primary" },
-    { label: locale === "en" ? "This Month" : "هذا الشهر", value: "89", icon: TrendingUp, color: "text-success" },
-    { label: locale === "en" ? "Saved" : "محفوظة", value: "24", icon: Heart, color: "text-destructive" },
-    { label: locale === "en" ? "History" : "السجل", value: "156", icon: Clock, color: "text-muted-foreground" },
+    { label: locale === "en" ? "This Month" : "ردود هذا الشهر", value: String(usage.used), icon: Sparkles, color: "text-primary" },
+    { label: locale === "en" ? "Limit" : "الحد الشهري", value: String(usage.limit), icon: TrendingUp, color: "text-success" },
+    { label: locale === "en" ? "Saved" : "محفوظة", value: "0", icon: Heart, color: "text-destructive" },
+    { label: locale === "en" ? "History" : "السجل", value: "0", icon: Clock, color: "text-muted-foreground" },
   ];
 
   return (
@@ -43,11 +47,18 @@ export default function Dashboard() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">{t.settings.usage}</span>
-          <span className="text-xs text-muted-foreground">89 / 500 {t.settings.repliesUsed}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {usage.used} / {usage.limit} {locale === "ar" ? "رد مستخدم" : t.settings.repliesUsed}
+          </span>
         </div>
-        <div className="w-full bg-muted rounded-full h-2">
-          <div className="bg-primary rounded-full h-2 transition-all" style={{ width: "18%" }} />
-        </div>
+        <Progress value={usagePct} className="h-2" />
+        {usage.used >= usage.limit && (
+          <p className="text-xs text-destructive mt-2">
+            {locale === "ar"
+              ? "لقد استخدمت كل الردود المتاحة في خطتك هذا الشهر."
+              : "You've used all your replies for this month."}
+          </p>
+        )}
       </div>
 
       {/* Recent */}

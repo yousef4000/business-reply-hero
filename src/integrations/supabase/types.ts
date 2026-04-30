@@ -14,16 +14,116 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      subscriptions: {
+        Row: {
+          created_at: string
+          id: string
+          period_start: string
+          plan: Database["public"]["Enums"]["plan_tier"]
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          period_start?: string
+          plan?: Database["public"]["Enums"]["plan_tier"]
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          period_start?: string
+          plan?: Database["public"]["Enums"]["plan_tier"]
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      usage_counters: {
+        Row: {
+          created_at: string
+          id: string
+          period_start: string
+          replies_used: number
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          id?: string
+          period_start: string
+          replies_used?: number
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          id?: string
+          period_start?: string
+          replies_used?: number
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
     }
     Functions: {
-      [_ in never]: never
+      consume_reply_credit: {
+        Args: { _user_id: string }
+        Returns: {
+          period_start: string
+          plan: Database["public"]["Enums"]["plan_tier"]
+          plan_limit: number
+          used: number
+        }[]
+      }
+      get_or_create_subscription: {
+        Args: { _user_id: string }
+        Returns: {
+          created_at: string
+          id: string
+          period_start: string
+          plan: Database["public"]["Enums"]["plan_tier"]
+          updated_at: string
+          user_id: string
+        }
+        SetofOptions: {
+          from: "*"
+          to: "subscriptions"
+          isOneToOne: true
+          isSetofReturn: false
+        }
+      }
+      get_usage_status: {
+        Args: { _user_id: string }
+        Returns: {
+          period_start: string
+          plan: Database["public"]["Enums"]["plan_tier"]
+          plan_limit: number
+          used: number
+        }[]
+      }
+      my_usage_status: {
+        Args: never
+        Returns: {
+          period_start: string
+          plan: Database["public"]["Enums"]["plan_tier"]
+          plan_limit: number
+          used: number
+        }[]
+      }
+      plan_monthly_limit: {
+        Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
+        Returns: number
+      }
     }
     Enums: {
-      [_ in never]: never
+      plan_tier: "free" | "starter" | "pro" | "business"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +250,8 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      plan_tier: ["free", "starter", "pro", "business"],
+    },
   },
 } as const

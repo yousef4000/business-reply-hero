@@ -10,6 +10,9 @@ import { copyToClipboard, shareContent } from "@/lib/share";
 import { Sparkles, Copy, Share2, Heart, BookmarkPlus, RefreshCw, Minimize2, Maximize2, Megaphone, Check, Brain, MessageSquare, Target, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
+import { useUsage, getGuestUsage, bumpGuestUsage, GUEST_LIMIT } from "@/hooks/use-usage";
+import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
+import { Progress } from "@/components/ui/progress";
 
 const platforms = ["whatsapp", "instagram", "messenger", "email", "chat"] as const;
 const tones = ["professional", "friendly", "casual", "persuasive", "empathetic"] as const;
@@ -66,6 +69,9 @@ export default function GeneratePage() {
   const [selectedStyle, setSelectedStyle] = useState<"soft" | "persuasive" | "directClosing">("persuasive");
   const [result, setResult] = useState<GenerationResult | null>(null);
   const [error, setError] = useState<string | null>(null);
+  const [limitReached, setLimitReached] = useState(false);
+  const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const usage = useUsage();
 
   const getBusinessProfile = () => {
     try {
@@ -76,10 +82,29 @@ export default function GeneratePage() {
     }
   };
 
+  const limitMessage =
+    locale === "ar"
+      ? "لقد استخدمت كل الردود المتاحة في خطتك هذا الشهر. قم بالترقية للمتابعة."
+      : "You've used all your replies for this month. Upgrade to continue.";
+
+  const guestLimitMessage =
+    locale === "ar"
+      ? `لقد استخدمت ${GUEST_LIMIT} ردود كزائر. سجّل الدخول للحصول على المزيد.`
+      : `You've used your ${GUEST_LIMIT} guest replies. Sign in to get more.`;
+
   const handleGenerate = async () => {
     if (!customerMessage.trim()) return;
+
+    if (!usage.loading && usage.used >= usage.limit) {
+      setLimitReached(true);
+      setError(usage.isGuest ? guestLimitMessage : limitMessage);
+      if (!usage.isGuest) setUpgradeOpen(true);
+      return;
+    }
+
     setIsGenerating(true);
     setError(null);
+    setLimitReached(false);
     setResult(null);
 
     try {
@@ -92,14 +117,28 @@ export default function GeneratePage() {
           customerMessage,
           language: locale,
           businessProfile: getBusinessProfile(),
+          guestUsage: usage.isGuest ? getGuestUsage() : undefined,
         },
       });
+
+      const payload = (data ?? (fnError as any)?.context?.body) as any;
+      const code = payload?.code || payload?.error;
+
+      if (code === "USAGE_LIMIT_REACHED" || code === "GUEST_LIMIT_REACHED") {
+        setLimitReached(true);
+        setError(code === "GUEST_LIMIT_REACHED" ? guestLimitMessage : limitMessage);
+        if (code === "USAGE_LIMIT_REACHED") setUpgradeOpen(true);
+        return;
+      }
 
       if (fnError) throw new Error(fnError.message || "Generation failed");
       if (data?.error) throw new Error(data.error);
 
       setResult(data as GenerationResult);
       setSelectedStyle("persuasive");
+
+      if (usage.isGuest) bumpGuestUsage();
+      usage.refresh();
     } catch (err: any) {
       console.error("Generation error:", err);
       setError(err.message || "Something went wrong");
@@ -127,7 +166,17 @@ export default function GeneratePage() {
 
   return (
     <div className="mobile-container space-y-5 animate-slide-up">
-      <h1 className="text-xl font-bold">{t.generate.title}</h1>
+      <div className="flex items-center justify-between gap-3">
+        <h1 className="text-xl font-bold">{t.generate.title}</h1>
+        {!usage.loading && (
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {usage.used} / {usage.limit} {locale === "ar" ? "رد" : "replies"}
+          </span>
+        )}
+      </div>
+      {!usage.loading && (
+        <Progress value={Math.min(100, (usage.used / Math.max(1, usage.limit)) * 100)} className="h-1.5" />
+      )}
 
       {/* Form */}
       <div className="space-y-4">
@@ -203,11 +252,25 @@ export default function GeneratePage() {
       {error && (
         <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
-          <div>
+          <div className="flex-1">
             <p className="text-sm text-destructive font-medium">{error}</p>
-            <Button variant="outline" size="sm" className="mt-2" onClick={handleGenerate}>
-              {t.common.retry}
-            </Button>
+            <div className="flex gap-2 mt-2 flex-wrap">
+              {limitReached ? (
+                usage.isGuest ? (
+                  <Button variant="default" size="sm" asChild>
+                    <a href="/signin">{locale === "ar" ? "تسجيل الدخول" : "Sign in"}</a>
+                  </Button>
+                ) : (
+                  <Button variant="default" size="sm" onClick={() => setUpgradeOpen(true)}>
+                    {locale === "ar" ? "ترقية الخطة" : "Upgrade Plan"}
+                  </Button>
+                )
+              ) : (
+                <Button variant="outline" size="sm" onClick={handleGenerate}>
+                  {t.common.retry}
+                </Button>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -332,6 +395,12 @@ export default function GeneratePage() {
           </div>
         </div>
       )}
+
+      <UpgradeModal
+        open={upgradeOpen}
+        onOpenChange={setUpgradeOpen}
+        plan={(usage.plan === "guest" || usage.plan === "free" ? "pro" : usage.plan === "starter" ? "pro" : usage.plan === "pro" ? "business" : "business") as PlanKey}
+      />
     </div>
   );
 }
