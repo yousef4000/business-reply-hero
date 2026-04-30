@@ -126,8 +126,11 @@ export default function SettingsPage() {
             <p className="text-sm font-medium">{t.settings.currentPlan}: <span className="text-primary">{t.plans.free}</span></p>
             <p className="text-xs text-muted-foreground">12 {t.settings.of} 25 {t.settings.repliesUsed}</p>
           </div>
-          <Button variant="outline" size="sm">{t.settings.upgrade}</Button>
+          <Button variant="outline" size="sm" onClick={() => setUpgradePlan("pro")}>{t.settings.upgrade}</Button>
         </div>
+        <p className="text-[11px] text-muted-foreground">
+          {locale === "ar" ? "الدفع الإلكتروني قريبًا" : "Online payment coming soon"}
+        </p>
       </div>
 
       {/* Account */}
