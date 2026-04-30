@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
-import { Sparkles, MessageSquare, Globe, Shield, Zap, Star } from "lucide-react";
+import { Sparkles, MessageSquare, Globe, Shield, Zap, Star, Store, Dumbbell, Stethoscope, GraduationCap, Building2, Briefcase, Quote } from "lucide-react";
 import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
 
 export default function LandingPage() {
@@ -17,6 +17,31 @@ export default function LandingPage() {
     { icon: Star, title: locale === "en" ? "Save & Reuse" : "حفظ وإعادة استخدام", desc: locale === "en" ? "History, favorites, and templates" : "سجل ومفضلات وقوالب" },
     { icon: Sparkles, title: locale === "en" ? "Smart Actions" : "إجراءات ذكية", desc: locale === "en" ? "Rewrite, shorten, expand, persuade" : "إعادة كتابة، اختصار، توسيع، إقناع" },
   ];
+
+  const audiences = [
+    { icon: Store, label: locale === "ar" ? "المتاجر" : "Stores" },
+    { icon: Dumbbell, label: locale === "ar" ? "الجيمات والمدربين" : "Gyms & Trainers" },
+    { icon: Stethoscope, label: locale === "ar" ? "العيادات" : "Clinics" },
+    { icon: GraduationCap, label: locale === "ar" ? "الكورسات" : "Courses" },
+    { icon: Building2, label: locale === "ar" ? "العقارات" : "Real Estate" },
+    { icon: Briefcase, label: locale === "ar" ? "الخدمات" : "Services" },
+  ];
+
+  const heroTitle = locale === "ar"
+    ? "حوّل رسائل العملاء إلى ردود جاهزة تقفل البيع"
+    : "Turn customer messages into ready replies that close the sale";
+  const heroSub = locale === "ar"
+    ? "مساعد ذكي يكتب لك ردودًا عربية احترافية لواتساب، إنستغرام، ماسنجر والبريد — مناسب للمتاجر، الجيمات، العيادات، الكورسات والخدمات."
+    : "A smart assistant that writes professional replies for WhatsApp, Instagram, Messenger and Email — built for stores, gyms, clinics, courses, and services.";
+  const ctaPrimary = locale === "ar" ? "جرّب 15 ردًا مجانًا" : "Try 15 replies free";
+  const ctaSecondary = locale === "ar" ? "شاهد مثالًا" : "See an example";
+
+  const exampleCustomer = locale === "ar"
+    ? "السعر غالي"
+    : "The price is too expensive";
+  const exampleReply = locale === "ar"
+    ? "فاهمك جدًا، لكن الفكرة إنك مش بتدفع مقابل الخدمة فقط، أنت بتدفع مقابل نتيجة ومتابعة توفر عليك وقت وتجربة عشوائية. تحب أشرح لك أنسب باقة حسب احتياجك؟"
+    : "I totally understand — but you're not paying for the service alone, you're paying for results and follow-up that save you time and trial-and-error. Want me to suggest the best package for you?";
 
   return (
     <div className="min-h-screen bg-background">
@@ -36,24 +61,81 @@ export default function LandingPage() {
       </header>
 
       {/* Hero */}
-      <section className="mobile-container py-16 lg:py-24 text-center">
+      <section className="mobile-container py-14 lg:py-24 text-center">
         <div className="inline-flex items-center gap-2 bg-primary/10 text-primary px-3 py-1.5 rounded-full text-xs font-medium mb-6">
           <Sparkles className="h-3.5 w-3.5" />
-          {locale === "en" ? "AI-Powered Business Replies" : "ردود أعمال مدعومة بالذكاء الاصطناعي"}
+          {locale === "ar" ? "ردود أعمال مدعومة بالذكاء الاصطناعي" : "AI-Powered Business Replies"}
         </div>
         <h1 className="text-3xl lg:text-5xl font-bold text-foreground leading-tight max-w-2xl mx-auto">
-          {t.landing.hero}
+          {heroTitle}
         </h1>
-        <p className="mt-4 text-muted-foreground max-w-lg mx-auto text-sm lg:text-base">
-          {t.landing.heroSub}
+        <p className="mt-4 text-muted-foreground max-w-xl mx-auto text-sm lg:text-base leading-relaxed">
+          {heroSub}
         </p>
         <div className="flex flex-col sm:flex-row gap-3 justify-center mt-8">
           <Button size="lg" asChild className="text-base">
-            <Link to="/app/generate">{t.landing.cta}</Link>
+            <Link to="/app/generate">{ctaPrimary}</Link>
           </Button>
           <Button size="lg" variant="outline" asChild className="text-base">
-            <a href="#features">{t.landing.ctaSecondary}</a>
+            <a href="#example">{ctaSecondary}</a>
           </Button>
+        </div>
+      </section>
+
+      {/* Example */}
+      <section id="example" className="mobile-container pb-16">
+        <div className="max-w-2xl mx-auto rounded-2xl border border-border bg-card p-5 lg:p-7 shadow-sm">
+          <div className="inline-flex items-center gap-2 text-xs font-semibold text-primary uppercase tracking-wide mb-4">
+            <Sparkles className="h-3.5 w-3.5" />
+            {locale === "ar" ? "مثال حقيقي" : "Real example"}
+          </div>
+
+          {/* Customer message bubble */}
+          <div className="flex flex-col items-start mb-3">
+            <span className="text-[11px] text-muted-foreground mb-1">
+              {locale === "ar" ? "رسالة العميل" : "Customer message"}
+            </span>
+            <div className="max-w-[85%] rounded-2xl rounded-ss-sm bg-muted px-4 py-2.5 text-sm" dir="auto">
+              {exampleCustomer}
+            </div>
+          </div>
+
+          {/* Generated reply bubble */}
+          <div className="flex flex-col items-end">
+            <span className="text-[11px] text-muted-foreground mb-1">
+              {locale === "ar" ? "الرد الذكي" : "AI reply"}
+            </span>
+            <div className="max-w-[90%] rounded-2xl rounded-se-sm bg-primary text-primary-foreground px-4 py-3 text-sm leading-relaxed" dir="auto">
+              <Quote className="h-3.5 w-3.5 opacity-70 mb-1" />
+              {exampleReply}
+            </div>
+          </div>
+
+          <div className="mt-6 text-center">
+            <Button asChild>
+              <Link to="/app/generate">{ctaPrimary}</Link>
+            </Button>
+          </div>
+        </div>
+      </section>
+
+      {/* Audience */}
+      <section className="mobile-container pb-16">
+        <h2 className="text-xl lg:text-2xl font-bold text-center mb-2">
+          {locale === "ar" ? "مصمم لكل نشاط تجاري" : "Built for every business"}
+        </h2>
+        <p className="text-sm text-muted-foreground text-center mb-8">
+          {locale === "ar" ? "تجربة مخصّصة لمجالك" : "Tailored to your industry"}
+        </p>
+        <div className="grid grid-cols-2 sm:grid-cols-3 lg:grid-cols-6 gap-3 max-w-3xl mx-auto">
+          {audiences.map((a, i) => (
+            <div key={i} className="flex flex-col items-center gap-2 rounded-xl border border-border bg-card p-4 hover:border-primary/40 hover:shadow-sm transition-all">
+              <div className="h-10 w-10 rounded-full bg-primary/10 flex items-center justify-center">
+                <a.icon className="h-5 w-5 text-primary" />
+              </div>
+              <span className="text-xs font-medium text-center">{a.label}</span>
+            </div>
+          ))}
         </div>
       </section>
 
