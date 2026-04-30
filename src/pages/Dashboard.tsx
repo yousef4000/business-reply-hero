@@ -2,6 +2,8 @@ import { useLanguage } from "@/i18n/LanguageContext";
 import { Link } from "react-router-dom";
 import { Sparkles, Clock, Heart, TrendingUp } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Progress } from "@/components/ui/progress";
+import { useUsage } from "@/hooks/use-usage";
 
 export default function Dashboard() {
   const { t, locale } = useLanguage();
