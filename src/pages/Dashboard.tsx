@@ -47,11 +47,18 @@ export default function Dashboard() {
       <div className="rounded-xl border border-border bg-card p-4">
         <div className="flex items-center justify-between mb-2">
           <span className="text-sm font-medium">{t.settings.usage}</span>
-          <span className="text-xs text-muted-foreground">89 / 500 {t.settings.repliesUsed}</span>
+          <span className="text-xs text-muted-foreground tabular-nums">
+            {usage.used} / {usage.limit} {locale === "ar" ? "رد مستخدم" : t.settings.repliesUsed}
+          </span>
         </div>
-        <div className="w-full bg-muted rounded-full h-2">
-          <div className="bg-primary rounded-full h-2 transition-all" style={{ width: "18%" }} />
-        </div>
+        <Progress value={usagePct} className="h-2" />
+        {usage.used >= usage.limit && (
+          <p className="text-xs text-destructive mt-2">
+            {locale === "ar"
+              ? "لقد استخدمت كل الردود المتاحة في خطتك هذا الشهر."
+              : "You've used all your replies for this month."}
+          </p>
+        )}
       </div>
 
       {/* Recent */}
