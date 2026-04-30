@@ -14,6 +14,7 @@ const tones = ["professional", "friendly", "casual", "persuasive", "empathetic"]
 export default function SettingsPage() {
   const { t, locale, setLocale } = useLanguage();
   const { toast } = useToast();
+  const [upgradePlan, setUpgradePlan] = useState<PlanKey | null>(null);
 
   const [profile, setProfile] = useState({
     businessName: "",
