@@ -7,6 +7,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { useToast } from "@/hooks/use-toast";
 import { Globe, User, Building2, CreditCard } from "lucide-react";
+import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
 
 const tones = ["professional", "friendly", "casual", "persuasive", "empathetic"] as const;
 
