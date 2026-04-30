@@ -1,10 +1,13 @@
+import { useState } from "react";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Link } from "react-router-dom";
 import { Sparkles, MessageSquare, Globe, Shield, Zap, Star } from "lucide-react";
+import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
 
 export default function LandingPage() {
   const { t, locale, setLocale } = useLanguage();
+  const [upgradePlan, setUpgradePlan] = useState<PlanKey | null>(null);
 
   const features = [
     { icon: MessageSquare, title: locale === "en" ? "Multi-Platform" : "متعدد المنصات", desc: locale === "en" ? "WhatsApp, Instagram, Messenger, Email & more" : "واتساب، إنستغرام، ماسنجر، بريد إلكتروني والمزيد" },
