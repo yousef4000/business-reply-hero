@@ -9,7 +9,7 @@ export function AppLayout() {
       <DesktopSidebar />
       <div className="flex-1 flex flex-col min-h-screen">
         <AppHeader />
-        <main className="flex-1 pb-[calc(var(--bottom-nav-height)+0.5rem)] lg:pb-4 pt-4">
+        <main className="flex-1 pt-4 pb-[calc(var(--bottom-nav-height)+env(safe-area-inset-bottom,0px)+1.5rem)] lg:pb-8">
           <Outlet />
         </main>
       </div>
