@@ -71,6 +71,7 @@ export default function GeneratePage() {
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [showAllOptions, setShowAllOptions] = useState(false);
   const usage = useUsage();
 
   const getBusinessProfile = () => {
