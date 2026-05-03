@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -8,11 +8,15 @@ import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
 import { Capacitor } from "@capacitor/core";
+import { Browser } from "@capacitor/browser";
+import { App as CapApp } from "@capacitor/app";
 
 export default function SignInPage() {
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
   const isNative = Capacitor.isNativePlatform();
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
 
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
