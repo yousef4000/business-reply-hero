@@ -15,9 +15,6 @@ export default function SignInPage() {
   const { t, locale } = useLanguage();
   const navigate = useNavigate();
   const isNative = Capacitor.isNativePlatform();
-  const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
-
   const [mode, setMode] = useState<"signin" | "signup">("signin");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
