@@ -233,28 +233,45 @@ Return a JSON object matching the required schema with classification, 3 reply o
       required: ["classification", "replies", "leadTemperature", "followUp"],
     };
 
-    const response = await fetch(OPENAI_URL, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${OPENAI_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: OPENAI_MODEL,
-        input: [
-          { role: "system", content: systemPrompt },
-          { role: "user", content: userPrompt },
-        ],
-        text: {
-          format: {
-            type: "json_schema",
-            name: "generate_reply",
-            strict: true,
-            schema,
-          },
+    let response: Response;
+    try {
+      console.log("Calling OpenAI Responses API:", OPENAI_URL);
+      response = await fetch(OPENAI_URL, {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${OPENAI_API_KEY}`,
+          "Content-Type": "application/json",
         },
-      }),
-    });
+        body: JSON.stringify({
+          model: OPENAI_MODEL,
+          input: [
+            { role: "system", content: systemPrompt },
+            { role: "user", content: userPrompt },
+          ],
+          text: {
+            format: {
+              type: "json_schema",
+              name: "generate_reply",
+              strict: true,
+              schema,
+            },
+          },
+        }),
+      });
+      console.log("OpenAI response status:", response.status);
+    } catch (error) {
+      console.error("OpenAI Error:", error);
+      if (userId) {
+        await admin
+          .from("usage_counters")
+          .update({ replies_used: Math.max(0, usedAfter - 1) })
+          .eq("user_id", userId);
+      }
+      return new Response(
+        JSON.stringify({ error: error instanceof Error ? error.message : String(error) }),
+        { status: 500, headers: { ...corsHeaders, "Content-Type": "application/json" } }
+      );
+    }
 
     if (!response.ok) {
       // Refund the credit since AI call failed (only for logged-in users)
