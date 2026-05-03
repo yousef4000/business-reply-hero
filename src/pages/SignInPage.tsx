@@ -66,6 +66,7 @@ export default function SignInPage() {
 
   const handleEmailAuth = async () => {
     setError(null);
+    setRawError(null);
     setInfo(null);
     if (!email || !password) {
       setError(isAr ? "أدخل البريد الإلكتروني وكلمة المرور" : "Enter email and password");
@@ -74,11 +75,13 @@ export default function SignInPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const redirectUrl = isNative ? undefined : `${window.location.origin}/app`;
+        const redirectUrl = isNative
+          ? "app.lovable.05243de4ad4443979a3c854cbccb815d://auth/callback"
+          : `${window.location.origin}/app`;
         const { error } = await supabase.auth.signUp({
           email,
           password,
-          options: redirectUrl ? { emailRedirectTo: redirectUrl } : undefined,
+          options: { emailRedirectTo: redirectUrl },
         });
         if (error) throw error;
         setInfo(isAr ? "تم إنشاء الحساب! تحقق من بريدك للتأكيد." : "Account created! Check your email to confirm.");
@@ -88,7 +91,10 @@ export default function SignInPage() {
         navigate("/app");
       }
     } catch (e: any) {
-      setError(translateError(e?.message || "Unknown error"));
+      const msg = e?.message || "Unknown error";
+      console.error("Auth error:", e);
+      setError(translateError(msg));
+      setRawError(msg);
     } finally {
       setLoading(false);
     }
@@ -96,15 +102,31 @@ export default function SignInPage() {
 
   const handleGoogle = async () => {
     setError(null);
+    setRawError(null);
     setLoading(true);
     try {
-      const { error } = await supabase.auth.signInWithOAuth({
+      const redirectTo = isNative
+        ? "app.lovable.05243de4ad4443979a3c854cbccb815d://auth/callback"
+        : `${window.location.origin}/app`;
+
+      const { data, error } = await supabase.auth.signInWithOAuth({
         provider: "google",
-        options: { redirectTo: `${window.location.origin}/app` },
+        options: {
+          redirectTo,
+          skipBrowserRedirect: isNative,
+        },
       });
       if (error) throw error;
+
+      if (isNative && data?.url) {
+        // Open in system browser; deep link comes back via appUrlOpen
+        await Browser.open({ url: data.url, presentationStyle: "popover" });
+      }
     } catch (e: any) {
-      setError(translateError(e?.message || "Google sign-in failed"));
+      const msg = e?.message || "Google sign-in failed";
+      console.error("Google auth error:", e);
+      setError(translateError(msg));
+      setRawError(msg);
       setLoading(false);
     }
   };
