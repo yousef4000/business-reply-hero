@@ -22,8 +22,38 @@ export default function SignInPage() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
+  const [rawError, setRawError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  // Handle OAuth deep-link callback on native (e.g. app.lovable.05243de4...://...)
+  useEffect(() => {
+    if (!isNative) return;
+    const sub = CapApp.addListener("appUrlOpen", async ({ url }) => {
+      try {
+        await Browser.close();
+      } catch {}
+      // Supabase tokens come back in the URL hash after #
+      const hash = url.split("#")[1];
+      if (!hash) return;
+      const params = new URLSearchParams(hash);
+      const access_token = params.get("access_token");
+      const refresh_token = params.get("refresh_token");
+      if (access_token && refresh_token) {
+        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+        if (error) {
+          setError(error.message);
+          setRawError(error.message);
+        } else {
+          navigate("/app");
+        }
+      }
+    });
+    return () => {
+      sub.then((s) => s.remove());
+    };
+  }, [isNative, navigate]);
+
 
   const isAr = locale === "ar";
 
