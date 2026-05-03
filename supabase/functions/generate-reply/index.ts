@@ -7,7 +7,8 @@ const corsHeaders = {
     "authorization, x-client-info, apikey, content-type, x-supabase-client-platform, x-supabase-client-platform-version, x-supabase-client-runtime, x-supabase-client-runtime-version",
 };
 
-const GATEWAY_URL = "https://ai.gateway.lovable.dev/v1/chat/completions";
+const OPENAI_URL = "https://api.openai.com/v1/responses";
+const OPENAI_MODEL = "gpt-4o-mini";
 const GUEST_LIMIT = 3;
 
 const json = (body: unknown, status = 200) =>
@@ -22,12 +23,12 @@ serve(async (req) => {
   }
 
   try {
-    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
+    const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
     const SUPABASE_URL = Deno.env.get("SUPABASE_URL");
     const SUPABASE_SERVICE_ROLE_KEY = Deno.env.get("SUPABASE_SERVICE_ROLE_KEY");
     const SUPABASE_ANON_KEY = Deno.env.get("SUPABASE_ANON_KEY");
 
-    if (!LOVABLE_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
+    if (!OPENAI_API_KEY || !SUPABASE_URL || !SUPABASE_SERVICE_ROLE_KEY || !SUPABASE_ANON_KEY) {
       return json({ error: "Server not configured" }, 500);
     }
 
@@ -71,7 +72,6 @@ serve(async (req) => {
       const { data, error } = await admin.rpc("consume_reply_credit", { _user_id: userId });
       if (error) {
         if ((error.message || "").includes("USAGE_LIMIT_REACHED")) {
-          // Fetch status for context
           const { data: status } = await admin.rpc("get_usage_status", { _user_id: userId });
           const s = Array.isArray(status) ? status[0] : status;
           return json(
@@ -93,7 +93,6 @@ serve(async (req) => {
       planLimit = row?.plan_limit ?? 15;
       planName = row?.plan ?? "free";
     } else {
-      // Guest: client-attested counter (best-effort; hard cap on server)
       const guestUsed = Math.max(0, Number(guestUsage ?? 0));
       if (guestUsed >= GUEST_LIMIT) {
         return json(
@@ -112,7 +111,7 @@ serve(async (req) => {
       planName = "guest";
     }
 
-    // ----- Build prompt and call AI -----
+    // ----- Build prompt and call OpenAI Responses API -----
     const systemPrompt = `You are a senior Arabic-speaking sales & customer-service expert writing replies on behalf of a small business owner. Your replies must feel HUMAN — like a real, friendly, knowledgeable shop owner texting a customer back.
 
 LANGUAGE & TONE
@@ -169,7 +168,6 @@ The "followUp" is a SHORT internal note for the BUSINESS OWNER (not sent to the 
 - NEVER generic ("Follow up with the customer", "Check in later"). Bad.
 - GOOD examples: "ابعتله عرض الباقة المتوسطة بسعر مقسّم على دفعتين لأنه اعترض على السعر." / "Send him the mid-tier package with split payment since he pushed back on price."`;
 
-
     const businessContext = businessProfile
       ? `\nBUSINESS CONTEXT:
 - Business Name: ${businessProfile.businessName || "Not specified"}
@@ -193,68 +191,64 @@ ${businessContext}
 CUSTOMER MESSAGE:
 "${customerMessage}"
 
-You must call the generate_reply function with your analysis and 3 reply options.`;
+Return a JSON object matching the required schema with classification, 3 reply options (soft, persuasive, directClosing), leadTemperature, and a specific followUp note.`;
 
-    const response = await fetch(GATEWAY_URL, {
+    const schema = {
+      type: "object",
+      additionalProperties: false,
+      properties: {
+        classification: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            messageType: {
+              type: "string",
+              enum: ["objection", "inquiry", "complaint", "followUp", "greeting", "request", "comparison", "negotiation"],
+            },
+            customerIntent: { type: "string" },
+            objectionType: {
+              type: "string",
+              enum: ["price", "hesitation", "comparison", "discount", "trust", "timing", "none"],
+            },
+          },
+          required: ["messageType", "customerIntent", "objectionType"],
+        },
+        replies: {
+          type: "object",
+          additionalProperties: false,
+          properties: {
+            soft: { type: "string" },
+            persuasive: { type: "string" },
+            directClosing: { type: "string" },
+          },
+          required: ["soft", "persuasive", "directClosing"],
+        },
+        leadTemperature: { type: "string", enum: ["hot", "warm", "cold"] },
+        followUp: { type: "string" },
+      },
+      required: ["classification", "replies", "leadTemperature", "followUp"],
+    };
+
+    const response = await fetch(OPENAI_URL, {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${LOVABLE_API_KEY}`,
+        Authorization: `Bearer ${OPENAI_API_KEY}`,
         "Content-Type": "application/json",
       },
       body: JSON.stringify({
-        model: "google/gemini-3-flash-preview",
-        messages: [
+        model: OPENAI_MODEL,
+        input: [
           { role: "system", content: systemPrompt },
           { role: "user", content: userPrompt },
         ],
-        tools: [
-          {
-            type: "function",
-            function: {
-              name: "generate_reply",
-              description: "Generate classified customer reply options",
-              parameters: {
-                type: "object",
-                properties: {
-                  classification: {
-                    type: "object",
-                    properties: {
-                      messageType: { type: "string", enum: ["objection", "inquiry", "complaint", "followUp", "greeting", "request", "comparison", "negotiation"] },
-                      customerIntent: { type: "string" },
-                      objectionType: { type: "string", enum: ["price", "hesitation", "comparison", "discount", "trust", "timing", "none"] },
-                    },
-                    required: ["messageType", "customerIntent", "objectionType"],
-                  },
-                  replies: {
-                    type: "object",
-                    properties: {
-                      soft: {
-                        type: "string",
-                        description: "لطيف — Empathetic, low-pressure reply. Acknowledges the concern warmly, lowers hesitation, ends with a soft, friendly CTA. Same language as the customer message. No filler.",
-                      },
-                      persuasive: {
-                        type: "string",
-                        description: "مقنع — Value-focused reply. Empathy + concrete value reframe + reduce hesitation + soft CTA. Confident, not pushy. Same language as the customer message. No exaggeration.",
-                      },
-                      directClosing: {
-                        type: "string",
-                        description: "إغلاق مباشر — Warm but action-oriented reply that proposes the concrete next step (book, choose package, send details). One clear CTA. Same language as the customer message.",
-                      },
-                    },
-                    required: ["soft", "persuasive", "directClosing"],
-                  },
-                  leadTemperature: { type: "string", enum: ["hot", "warm", "cold"], description: "How likely this lead is to convert based on the message" },
-                  followUp: {
-                    type: "string",
-                    description: "SHORT internal note for the business owner (NOT sent to customer). Specific to this conversation, references what the customer actually said, and proposes a concrete next action. One sentence in the interface language. NEVER generic.",
-                  },
-                },
-                required: ["classification", "replies", "leadTemperature", "followUp"],
-              },
-            },
+        text: {
+          format: {
+            type: "json_schema",
+            name: "generate_reply",
+            strict: true,
+            schema,
           },
-        ],
-        tool_choice: { type: "function", function: { name: "generate_reply" } },
+        },
       }),
     });
 
@@ -267,21 +261,42 @@ You must call the generate_reply function with your analysis and 3 reply options
           .eq("user_id", userId);
       }
       if (response.status === 429) return json({ error: "Rate limit exceeded. Please try again shortly." }, 429);
-      if (response.status === 402) return json({ error: "AI credits exhausted." }, 402);
+      if (response.status === 401) return json({ error: "Invalid OpenAI API key." }, 500);
       const errorText = await response.text();
-      console.error("AI gateway error:", response.status, errorText);
+      console.error("OpenAI error:", response.status, errorText);
       return json({ error: "AI generation failed" }, 500);
     }
 
     const data = await response.json();
-    const toolCall = data.choices?.[0]?.message?.tool_calls?.[0];
 
-    if (!toolCall?.function?.arguments) {
-      console.error("No tool call in response:", JSON.stringify(data));
+    // Extract text output from Responses API
+    let outputText: string | undefined = data.output_text;
+    if (!outputText && Array.isArray(data.output)) {
+      for (const item of data.output) {
+        if (item?.type === "message" && Array.isArray(item.content)) {
+          for (const c of item.content) {
+            if (typeof c?.text === "string") {
+              outputText = c.text;
+              break;
+            }
+          }
+        }
+        if (outputText) break;
+      }
+    }
+
+    if (!outputText) {
+      console.error("No output text from OpenAI:", JSON.stringify(data));
       return json({ error: "AI did not return structured output" }, 500);
     }
 
-    const result = JSON.parse(toolCall.function.arguments);
+    let result;
+    try {
+      result = JSON.parse(outputText);
+    } catch (e) {
+      console.error("Failed to parse OpenAI output:", outputText);
+      return json({ error: "AI returned invalid JSON" }, 500);
+    }
 
     return json({
       ...result,
