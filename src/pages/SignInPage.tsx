@@ -7,9 +7,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { App as CapApp } from "@capacitor/app";
+
+const NATIVE_AUTH_CALLBACK_URL = "app.lovable.smartreplyai://auth/callback";
+
+const getAuthErrorMessage = (error: unknown, fallback = "Authentication failed") => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message || fallback);
+  }
+  return fallback;
+};
 
 export default function SignInPage() {
   const { t, locale } = useLanguage();
@@ -22,6 +34,13 @@ export default function SignInPage() {
   const [rawError, setRawError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+
+  const showAuthError = (label: string, authError: unknown, fallback?: string) => {
+    const msg = getAuthErrorMessage(authError, fallback);
+    console.error(label, authError);
+    setError(translateError(msg));
+    setRawError(msg);
+  };
 
   // Handle OAuth deep-link callback on native (e.g. app.lovable.05243de4...://...)
   useEffect(() => {
