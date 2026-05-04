@@ -63,7 +63,7 @@ npx cap open android
 ### 7. Configure the App
 
 In Android Studio, verify:
-- **Package name**: `app.lovable.05243de4ad4443979a3c854cbccb815d` (or change to your own, e.g., `com.yourcompany.smartreplyai`)
+- **Package name**: `app.lovable.smartreplyai` (or change to your own, e.g., `com.yourcompany.smartreplyai`, before first Play Store upload)
 - **Min SDK**: 22 (Android 5.1)
 - **Target SDK**: 34 (Android 14)
 
@@ -143,7 +143,7 @@ Required declarations:
 
 ## Package Name Guidance
 
-- Default: `app.lovable.05243de4ad4443979a3c854cbccb815d`
+- Default: `app.lovable.smartreplyai`
 - Recommended: Use your own domain-based ID, e.g., `com.smartreplyai.app`
 - **Cannot be changed** after first Play Store upload
 - Change in `capacitor.config.ts` (`appId`) and sync before first release
