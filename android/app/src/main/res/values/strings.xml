@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Smart Reply AI</string>
+    <string name="title_activity_main">Smart Reply AI</string>
+    <string name="package_name">app.lovable.smartreplyai</string>
+    <string name="custom_url_scheme">app.lovable.smartreplyai</string>
+</resources>
