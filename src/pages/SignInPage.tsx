@@ -180,8 +180,10 @@ export default function SignInPage() {
           <Alert variant="destructive">
             <AlertDescription>
               <div className="font-medium">{error}</div>
-              {rawError && rawError !== error && (
-                <div className="mt-1 text-xs opacity-80 break-all">{rawError}</div>
+              {rawError && (
+                <div className="mt-1 text-xs opacity-80 break-all">
+                  {isAr ? "الخطأ الأصلي: " : "Exact error: "}{rawError}
+                </div>
               )}
             </AlertDescription>
           </Alert>
