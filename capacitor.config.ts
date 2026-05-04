@@ -1,7 +1,7 @@
 import type { CapacitorConfig } from '@capacitor/cli';
 
 const config: CapacitorConfig = {
-  appId: 'app.lovable.05243de4ad4443979a3c854cbccb815d',
+  appId: 'app.lovable.smartreplyai',
   appName: 'Smart Reply AI',
   webDir: 'dist',
   // For development: uncomment and set your preview URL
