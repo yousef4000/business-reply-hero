@@ -204,6 +204,10 @@ Play Store requires `versionCode` to increase with each upload.
 ## Auth Considerations for Android WebView
 
 - **Email/password sign-in**: Works reliably in WebView
+- **Native auth callback URL**: `app.lovable.smartreplyai://auth/callback`
+- **Android OAuth package name**: `app.lovable.smartreplyai`
+- **Google OAuth setup**: For custom Google credentials, create an Android OAuth client with this package name and the SHA-1 fingerprint from your signing key. Also keep the managed Google provider enabled in Lovable Cloud.
+- **Deep link**: The Android manifest includes an intent filter for `app.lovable.smartreplyai://auth/callback` so OAuth and email confirmation links can return to the APK.
 - **Google Sign-In**: May need additional configuration:
   - Add your Android app's SHA-1 fingerprint to Google Cloud Console
   - Use Capacitor's `@capacitor/google-auth` plugin for native Google Sign-In
