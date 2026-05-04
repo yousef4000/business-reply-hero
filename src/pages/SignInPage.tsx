@@ -7,9 +7,21 @@ import { Alert, AlertDescription } from "@/components/ui/alert";
 import { Link, useNavigate } from "react-router-dom";
 import { Loader2, Mail } from "lucide-react";
 import { supabase } from "@/integrations/supabase/client";
+import { lovable } from "@/integrations/lovable";
 import { Capacitor } from "@capacitor/core";
 import { Browser } from "@capacitor/browser";
 import { App as CapApp } from "@capacitor/app";
+
+const NATIVE_AUTH_CALLBACK_URL = "app.lovable.smartreplyai://auth/callback";
+
+const getAuthErrorMessage = (error: unknown, fallback = "Authentication failed") => {
+  if (error instanceof Error) return error.message;
+  if (typeof error === "string") return error;
+  if (error && typeof error === "object" && "message" in error) {
+    return String((error as { message?: unknown }).message || fallback);
+  }
+  return fallback;
+};
 
 export default function SignInPage() {
   const { t, locale } = useLanguage();
@@ -23,28 +35,50 @@ export default function SignInPage() {
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
 
-  // Handle OAuth deep-link callback on native (e.g. app.lovable.05243de4...://...)
+  const showAuthError = (label: string, authError: unknown, fallback?: string) => {
+    const msg = getAuthErrorMessage(authError, fallback);
+    console.error(label, authError);
+    setError(translateError(msg));
+    setRawError(msg);
+  };
+
+  // Handle OAuth deep-link callback on native (e.g. app.lovable.smartreplyai://auth/callback)
   useEffect(() => {
     if (!isNative) return;
-    const sub = CapApp.addListener("appUrlOpen", async ({ url }) => {
+    const handleAuthCallback = async (url: string) => {
+      console.log("Capacitor auth callback URL:", url);
       try {
         await Browser.close();
       } catch {}
-      // Supabase tokens come back in the URL hash after #
-      const hash = url.split("#")[1];
-      if (!hash) return;
-      const params = new URLSearchParams(hash);
+      const [, hash = ""] = url.split("#");
+      const query = url.includes("?") ? url.split("?")[1]?.split("#")[0] ?? "" : "";
+      const params = new URLSearchParams(hash || query);
+      const callbackError = params.get("error_description") || params.get("error");
+      if (callbackError) {
+        showAuthError("OAuth callback error:", callbackError, "OAuth callback failed");
+        setLoading(false);
+        return;
+      }
       const access_token = params.get("access_token");
       const refresh_token = params.get("refresh_token");
-      if (access_token && refresh_token) {
-        const { error } = await supabase.auth.setSession({ access_token, refresh_token });
-        if (error) {
-          setError(error.message);
-          setRawError(error.message);
-        } else {
-          navigate("/app");
-        }
+      if (!access_token || !refresh_token) {
+        showAuthError("OAuth callback missing tokens:", url, "OAuth callback did not include a session");
+        setLoading(false);
+        return;
       }
+      const { error } = await supabase.auth.setSession({ access_token, refresh_token });
+      if (error) {
+        showAuthError("Set session error:", error, "Could not save auth session");
+      } else {
+        setLoading(false);
+        navigate("/app", { replace: true });
+      }
+    };
+    CapApp.getLaunchUrl().then((launch) => {
+      if (launch?.url) void handleAuthCallback(launch.url);
+    });
+    const sub = CapApp.addListener("appUrlOpen", ({ url }) => {
+      void handleAuthCallback(url);
     });
     return () => {
       sub.then((s) => s.remove());
@@ -75,9 +109,8 @@ export default function SignInPage() {
     setLoading(true);
     try {
       if (mode === "signup") {
-        const redirectUrl = isNative
-          ? "app.lovable.05243de4ad4443979a3c854cbccb815d://auth/callback"
-          : `${window.location.origin}/app`;
+        const redirectUrl = isNative ? NATIVE_AUTH_CALLBACK_URL : `${window.location.origin}/app`;
+        console.log("Email signup redirect URL:", redirectUrl);
         const { error } = await supabase.auth.signUp({
           email,
           password,
@@ -86,15 +119,13 @@ export default function SignInPage() {
         if (error) throw error;
         setInfo(isAr ? "تم إنشاء الحساب! تحقق من بريدك للتأكيد." : "Account created! Check your email to confirm.");
       } else {
+        console.log("Email/password sign-in started. Native:", isNative);
         const { error } = await supabase.auth.signInWithPassword({ email, password });
         if (error) throw error;
-        navigate("/app");
+        navigate("/app", { replace: true });
       }
     } catch (e: any) {
-      const msg = e?.message || "Unknown error";
-      console.error("Auth error:", e);
-      setError(translateError(msg));
-      setRawError(msg);
+      showAuthError("Email auth error:", e, "Email authentication failed");
     } finally {
       setLoading(false);
     }
@@ -105,28 +136,32 @@ export default function SignInPage() {
     setRawError(null);
     setLoading(true);
     try {
-      const redirectTo = isNative
-        ? "app.lovable.05243de4ad4443979a3c854cbccb815d://auth/callback"
-        : `${window.location.origin}/app`;
-
-      const { data, error } = await supabase.auth.signInWithOAuth({
-        provider: "google",
-        options: {
-          redirectTo,
-          skipBrowserRedirect: isNative,
-        },
-      });
-      if (error) throw error;
-
-      if (isNative && data?.url) {
-        // Open in system browser; deep link comes back via appUrlOpen
-        await Browser.open({ url: data.url, presentationStyle: "popover" });
+      if (isNative) {
+        const redirectTo = NATIVE_AUTH_CALLBACK_URL;
+        console.log("Google native sign-in started. Redirect URL:", redirectTo);
+        const { data, error } = await supabase.auth.signInWithOAuth({
+          provider: "google",
+          options: {
+            redirectTo,
+            skipBrowserRedirect: true,
+            queryParams: { prompt: "select_account" },
+          },
+        });
+        if (error) throw error;
+        if (!data?.url) throw new Error("Google OAuth did not return a login URL");
+        await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
+        return;
       }
+
+      console.log("Google web sign-in started.");
+      const result = await lovable.auth.signInWithOAuth("google", {
+        redirect_uri: window.location.origin,
+        extraParams: { prompt: "select_account" },
+      });
+      if (result.error) throw result.error;
+      if (!result.redirected) navigate("/app", { replace: true });
     } catch (e: any) {
-      const msg = e?.message || "Google sign-in failed";
-      console.error("Google auth error:", e);
-      setError(translateError(msg));
-      setRawError(msg);
+      showAuthError("Google auth error:", e, "Google sign-in failed");
       setLoading(false);
     }
   };
@@ -145,8 +180,10 @@ export default function SignInPage() {
           <Alert variant="destructive">
             <AlertDescription>
               <div className="font-medium">{error}</div>
-              {rawError && rawError !== error && (
-                <div className="mt-1 text-xs opacity-80 break-all">{rawError}</div>
+              {rawError && (
+                <div className="mt-1 text-xs opacity-80 break-all">
+                  {isAr ? "الخطأ الأصلي: " : "Exact error: "}{rawError}
+                </div>
               )}
             </AlertDescription>
           </Alert>
