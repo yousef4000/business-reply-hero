@@ -92,6 +92,12 @@
 @layer base {
   * {
     @apply border-border;
+    box-sizing: border-box;
+  }
+
+  html, body {
+    overflow-x: hidden;
+    max-width: 100%;
   }
 
   body {
@@ -99,6 +105,27 @@
     font-family: 'Inter', 'Noto Sans Arabic', sans-serif;
     -webkit-tap-highlight-color: transparent;
     -webkit-font-smoothing: antialiased;
+    line-height: 1.6;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    line-height: 1.25;
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  p, span, a, li {
+    overflow-wrap: break-word;
+    word-wrap: break-word;
+  }
+
+  img, svg, video, canvas {
+    max-width: 100%;
+    height: auto;
+  }
+
+  footer {
+    word-break: break-word;
   }
 
   [dir="rtl"] body {
