@@ -215,8 +215,8 @@ export default function LandingPage() {
       </section>
 
       {/* Footer */}
-      <footer className="border-t border-border py-8">
-        <div className="mobile-container text-center text-sm text-muted-foreground">
+      <footer className="border-t border-border py-8" style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
+        <div className="mobile-container text-center text-sm text-muted-foreground leading-relaxed break-words" dir="auto">
           © 2026 {t.app.name}. {locale === "en" ? "All rights reserved." : "جميع الحقوق محفوظة."}
         </div>
       </footer>
