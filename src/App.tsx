@@ -32,6 +32,7 @@ const App = () => (
               <Route path="generate" element={<GeneratePage />} />
               <Route path="history" element={<HistoryPage />} />
               <Route path="favorites" element={<FavoritesPage />} />
+              <Route path="business" element={<BusinessProfilePage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
