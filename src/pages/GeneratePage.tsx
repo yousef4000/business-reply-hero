@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { useSearchParams } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -7,12 +8,14 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LeadBadge } from "@/components/LeadBadge";
 import { copyToClipboard, shareContent } from "@/lib/share";
-import { Sparkles, Copy, Share2, Heart, BookmarkPlus, RefreshCw, Minimize2, Maximize2, Megaphone, Check, Brain, MessageSquare, Target, AlertTriangle } from "lucide-react";
+import { Sparkles, Copy, Share2, Heart, BookmarkPlus, RefreshCw, Check, Brain, MessageSquare, Target, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUsage, getGuestUsage, bumpGuestUsage, GUEST_LIMIT } from "@/hooks/use-usage";
 import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
-import { Progress } from "@/components/ui/progress";
+import { TrialBanner } from "@/components/TrialBanner";
+import { ObjectionCard, type ObjectionAnalysis } from "@/components/ObjectionCard";
+import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getTemplatesFor } from "@/lib/templates";
 
 const platforms = ["whatsapp", "instagram", "messenger", "email", "chat"] as const;
 const tones = ["professional", "friendly", "casual", "persuasive", "empathetic"] as const;
@@ -25,13 +28,10 @@ interface Classification {
 
 interface GenerationResult {
   classification: Classification;
-  replies: {
-    soft: string;
-    persuasive: string;
-    directClosing: string;
-  };
+  replies: { soft: string; persuasive: string; directClosing: string };
   leadTemperature: "hot" | "warm" | "cold";
   followUp: string;
+  objection_analysis?: ObjectionAnalysis;
 }
 
 const replyStyleLabels = {
@@ -41,16 +41,12 @@ const replyStyleLabels = {
 
 const classificationLabels = {
   en: {
-    messageType: "Message Type",
-    customerIntent: "Customer Intent",
-    objectionType: "Objection Type",
+    messageType: "Message Type", customerIntent: "Customer Intent", objectionType: "Objection Type",
     types: { objection: "Objection", inquiry: "Inquiry", complaint: "Complaint", followUp: "Follow-up", greeting: "Greeting", request: "Request", comparison: "Comparison", negotiation: "Negotiation" },
     objections: { price: "Price", hesitation: "Hesitation", comparison: "Comparison", discount: "Discount Request", trust: "Trust", timing: "Timing", none: "None" },
   },
   ar: {
-    messageType: "نوع الرسالة",
-    customerIntent: "نية العميل",
-    objectionType: "نوع الاعتراض",
+    messageType: "نوع الرسالة", customerIntent: "نية العميل", objectionType: "نوع الاعتراض",
     types: { objection: "اعتراض", inquiry: "استفسار", complaint: "شكوى", followUp: "متابعة", greeting: "تحية", request: "طلب", comparison: "مقارنة", negotiation: "تفاوض" },
     objections: { price: "السعر", hesitation: "تردد", comparison: "مقارنة", discount: "طلب خصم", trust: "ثقة", timing: "توقيت", none: "لا يوجد" },
   },
@@ -59,6 +55,7 @@ const classificationLabels = {
 export default function GeneratePage() {
   const { t, locale } = useLanguage();
   const { toast } = useToast();
+  const [params, setParams] = useSearchParams();
   const [platform, setPlatform] = useState("");
   const [businessType, setBusinessType] = useState("");
   const [replyGoal, setReplyGoal] = useState("");
@@ -74,29 +71,47 @@ export default function GeneratePage() {
   const [showAllOptions, setShowAllOptions] = useState(false);
   const usage = useUsage();
 
-  const getBusinessProfile = () => {
-    try {
-      const saved = localStorage.getItem("smartreply-profile");
-      return saved ? JSON.parse(saved) : null;
-    } catch {
-      return null;
+  // Receive shared text from Android share-target / web share target
+  useEffect(() => {
+    const shared = params.get("shared");
+    if (shared) {
+      setCustomerMessage(shared);
+      const next = new URLSearchParams(params);
+      next.delete("shared");
+      setParams(next, { replace: true });
     }
-  };
+    const handler = (e: Event) => {
+      const detail = (e as CustomEvent).detail as string;
+      if (detail) setCustomerMessage(detail);
+    };
+    window.addEventListener("smartreply:shared", handler);
+    if ((window as any).__sharedText) {
+      setCustomerMessage((window as any).__sharedText);
+      (window as any).__sharedText = null;
+    }
+    return () => window.removeEventListener("smartreply:shared", handler);
+  }, []); // eslint-disable-line
 
   const limitMessage =
-    locale === "ar"
-      ? "لقد استخدمت كل الردود المتاحة في خطتك هذا الشهر. قم بالترقية للمتابعة."
-      : "You've used all your replies for this month. Upgrade to continue.";
+    usage.planState === "trial_expired"
+      ? (locale === "ar" ? "انتهت تجربتك المجانية. قم بالترقية للمتابعة." : "Your free trial has ended. Upgrade to continue.")
+      : (locale === "ar" ? "لقد استخدمت كل الردود المتاحة في خطتك هذا الشهر. قم بالترقية للمتابعة." : "You've used all your replies for this month. Upgrade to continue.");
 
-  const guestLimitMessage =
-    locale === "ar"
-      ? `لقد استخدمت ${GUEST_LIMIT} ردود كزائر. سجّل الدخول للحصول على المزيد.`
-      : `You've used your ${GUEST_LIMIT} guest replies. Sign in to get more.`;
+  const guestLimitMessage = locale === "ar"
+    ? `لقد استخدمت ${GUEST_LIMIT} ردود كزائر. سجّل الدخول للحصول على المزيد.`
+    : `You've used your ${GUEST_LIMIT} guest replies. Sign in to get more.`;
 
   const handleGenerate = async () => {
     if (!customerMessage.trim()) return;
 
-    if (!usage.loading && usage.used >= usage.limit) {
+    if (!usage.loading && usage.planState === "trial_expired") {
+      setLimitReached(true);
+      setError(limitMessage);
+      setUpgradeOpen(true);
+      return;
+    }
+
+    if (!usage.loading && usage.used >= usage.limit && usage.limit > 0) {
       setLimitReached(true);
       setError(usage.isGuest ? guestLimitMessage : limitMessage);
       if (!usage.isGuest) setUpgradeOpen(true);
@@ -117,7 +132,6 @@ export default function GeneratePage() {
           tone: tone || "professional",
           customerMessage,
           language: locale,
-          businessProfile: getBusinessProfile(),
           guestUsage: usage.isGuest ? getGuestUsage() : undefined,
         },
       });
@@ -125,10 +139,18 @@ export default function GeneratePage() {
       const payload = (data ?? (fnError as any)?.context?.body) as any;
       const code = payload?.code || payload?.error;
 
-      if (code === "USAGE_LIMIT_REACHED" || code === "GUEST_LIMIT_REACHED") {
+      if (code === "TRIAL_EXPIRED") {
+        setLimitReached(true);
+        setError(locale === "ar" ? "انتهت تجربتك المجانية. قم بالترقية للمتابعة." : "Your free trial has ended. Upgrade to continue.");
+        setUpgradeOpen(true);
+        usage.refresh();
+        return;
+      }
+      if (code === "USAGE_LIMIT_REACHED" || code === "TRIAL_LIMIT_REACHED" || code === "GUEST_LIMIT_REACHED") {
         setLimitReached(true);
         setError(code === "GUEST_LIMIT_REACHED" ? guestLimitMessage : limitMessage);
-        if (code === "USAGE_LIMIT_REACHED") setUpgradeOpen(true);
+        if (code !== "GUEST_LIMIT_REACHED") setUpgradeOpen(true);
+        usage.refresh();
         return;
       }
 
@@ -158,28 +180,21 @@ export default function GeneratePage() {
     }
   };
 
-  const handleShare = async (text: string) => {
-    await shareContent(text, t.app.name);
-  };
+  const handleShare = async (text: string) => { await shareContent(text, t.app.name); };
 
   const cls = classificationLabels[locale];
   const styleLabels = replyStyleLabels[locale];
+
+  const templates = businessType ? getTemplatesFor(businessType, locale) : [];
 
   return (
     <div className="mobile-container space-y-5 animate-slide-up">
       <div className="flex items-center justify-between gap-3">
         <h1 className="text-xl font-bold">{t.generate.title}</h1>
-        {!usage.loading && (
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {usage.used} / {usage.limit} {locale === "ar" ? "رد" : "replies"}
-          </span>
-        )}
       </div>
-      {!usage.loading && (
-        <Progress value={Math.min(100, (usage.used / Math.max(1, usage.limit)) * 100)} className="h-1.5" />
-      )}
 
-      {/* Form */}
+      <TrialBanner onUpgrade={() => setUpgradeOpen(true)} />
+
       <div className="space-y-4">
         <div className="grid grid-cols-2 gap-3">
           <div className="space-y-1.5">
@@ -187,9 +202,7 @@ export default function GeneratePage() {
             <Select value={platform} onValueChange={setPlatform}>
               <SelectTrigger><SelectValue placeholder={t.generate.platformPlaceholder} /></SelectTrigger>
               <SelectContent>
-                {platforms.map((p) => (
-                  <SelectItem key={p} value={p}>{t.generate.platforms[p]}</SelectItem>
-                ))}
+                {platforms.map((p) => (<SelectItem key={p} value={p}>{t.generate.platforms[p]}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
@@ -198,9 +211,7 @@ export default function GeneratePage() {
             <Select value={tone} onValueChange={setTone}>
               <SelectTrigger><SelectValue placeholder={t.generate.tone} /></SelectTrigger>
               <SelectContent>
-                {tones.map((tn) => (
-                  <SelectItem key={tn} value={tn}>{t.generate.tones[tn]}</SelectItem>
-                ))}
+                {tones.map((tn) => (<SelectItem key={tn} value={tn}>{t.generate.tones[tn]}</SelectItem>))}
               </SelectContent>
             </Select>
           </div>
@@ -208,48 +219,55 @@ export default function GeneratePage() {
 
         <div className="space-y-1.5">
           <Label className="text-xs">{t.generate.businessType}</Label>
-          <Input
-            value={businessType}
-            onChange={(e) => setBusinessType(e.target.value)}
-            placeholder={t.generate.businessTypePlaceholder}
-          />
+          <Select value={businessType} onValueChange={setBusinessType}>
+            <SelectTrigger><SelectValue placeholder={t.generate.businessTypePlaceholder} /></SelectTrigger>
+            <SelectContent>
+              {BUSINESS_TYPES.map((b) => (
+                <SelectItem key={b} value={b}>{BUSINESS_TYPE_LABELS[b][locale]}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
+
+        {templates.length > 0 && (
+          <div className="space-y-1.5">
+            <Label className="text-xs text-muted-foreground">
+              {locale === "ar" ? "قوالب سريعة" : "Quick templates"}
+            </Label>
+            <div className="flex flex-wrap gap-2">
+              {templates.map((tpl) => (
+                <button
+                  type="button"
+                  key={tpl}
+                  onClick={() => setReplyGoal(tpl)}
+                  className={`text-xs px-3 py-1.5 rounded-full border transition-colors ${
+                    replyGoal === tpl
+                      ? "bg-primary text-primary-foreground border-primary"
+                      : "border-border bg-card hover:border-primary/50"
+                  }`}
+                >
+                  {tpl}
+                </button>
+              ))}
+            </div>
+          </div>
+        )}
 
         <div className="space-y-1.5">
           <Label className="text-xs">{t.generate.replyGoal}</Label>
-          <Input
-            value={replyGoal}
-            onChange={(e) => setReplyGoal(e.target.value)}
-            placeholder={t.generate.replyGoalPlaceholder}
-          />
+          <Input value={replyGoal} onChange={(e) => setReplyGoal(e.target.value)} placeholder={t.generate.replyGoalPlaceholder} />
         </div>
 
         <div className="space-y-1.5">
           <Label className="text-xs">{t.generate.customerMessage}</Label>
-          <Textarea
-            value={customerMessage}
-            onChange={(e) => setCustomerMessage(e.target.value)}
-            placeholder={t.generate.customerMessagePlaceholder}
-            rows={4}
-            className="resize-none"
-          />
+          <Textarea value={customerMessage} onChange={(e) => setCustomerMessage(e.target.value)} placeholder={t.generate.customerMessagePlaceholder} rows={4} className="resize-none" />
         </div>
 
-        <Button
-          size="lg"
-          className="w-full text-base gap-2"
-          onClick={handleGenerate}
-          disabled={isGenerating || !customerMessage.trim()}
-        >
-          {isGenerating ? (
-            <><RefreshCw className="h-4 w-4 animate-spin" />{t.generate.generating}</>
-          ) : (
-            <><Sparkles className="h-4 w-4" />{t.generate.generateBtn}</>
-          )}
+        <Button size="lg" className="w-full text-base gap-2" onClick={handleGenerate} disabled={isGenerating || !customerMessage.trim()}>
+          {isGenerating ? (<><RefreshCw className="h-4 w-4 animate-spin" />{t.generate.generating}</>) : (<><Sparkles className="h-4 w-4" />{t.generate.generateBtn}</>)}
         </Button>
       </div>
 
-      {/* Error */}
       {error && (
         <div className="rounded-xl border border-destructive/50 bg-destructive/10 p-4 flex items-start gap-3">
           <AlertTriangle className="h-5 w-5 text-destructive shrink-0 mt-0.5" />
@@ -267,19 +285,17 @@ export default function GeneratePage() {
                   </Button>
                 )
               ) : (
-                <Button variant="outline" size="sm" onClick={handleGenerate}>
-                  {t.common.retry}
-                </Button>
+                <Button variant="outline" size="sm" onClick={handleGenerate}>{t.common.retry}</Button>
               )}
             </div>
           </div>
         </div>
       )}
 
-      {/* Result */}
       {result && (
         <div className="space-y-4 animate-slide-up">
-          {/* Classification Card */}
+          {result.objection_analysis && <ObjectionCard analysis={result.objection_analysis} />}
+
           <div className="rounded-xl border border-border bg-muted/50 p-4 space-y-2">
             <div className="flex items-center gap-2 mb-1">
               <Brain className="h-4 w-4 text-primary" />
@@ -308,105 +324,54 @@ export default function GeneratePage() {
             </div>
           </div>
 
-          {/* Lead Temperature */}
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">{t.generate.result}</h2>
             <LeadBadge temperature={result.leadTemperature} />
           </div>
 
-          {/* Reply Style Tabs */}
           <div className="flex gap-2">
             {(["soft", "persuasive", "directClosing"] as const).map((style) => (
-              <Button
-                key={style}
-                variant={selectedStyle === style ? "default" : "outline"}
-                size="sm"
-                className="flex-1 text-xs"
-                onClick={() => setSelectedStyle(style)}
-              >
+              <Button key={style} variant={selectedStyle === style ? "default" : "outline"} size="sm" className="flex-1 text-xs" onClick={() => setSelectedStyle(style)}>
                 {styleLabels[style]}
               </Button>
             ))}
           </div>
 
-          {/* Selected Reply */}
           <div className="rounded-xl border border-border bg-card p-4 space-y-3">
             <p className="text-sm text-foreground leading-relaxed whitespace-pre-wrap" dir="auto">
               {result.replies[selectedStyle]}
             </p>
-
-            {/* Actions: primary copy + compact icon buttons */}
             <div className="flex items-center gap-2 pt-2 border-t border-border">
-              <Button
-                size="sm"
-                onClick={() => handleCopy(result.replies[selectedStyle], selectedStyle)}
-                className="flex-1 gap-1.5 h-9"
-              >
+              <Button size="sm" onClick={() => handleCopy(result.replies[selectedStyle], selectedStyle)} className="flex-1 gap-1.5 h-9">
                 {copiedStyle === selectedStyle ? <Check className="h-4 w-4" /> : <Copy className="h-4 w-4" />}
                 <span className="text-sm font-medium">
                   {copiedStyle === selectedStyle ? (locale === "ar" ? "تم النسخ" : "Copied") : (locale === "ar" ? "نسخ" : "Copy")}
                 </span>
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                onClick={() => handleShare(result.replies[selectedStyle])}
-                className="h-9 w-9 shrink-0"
-                aria-label={t.generate.share}
-                title={t.generate.share}
-              >
+              <Button variant="outline" size="icon" onClick={() => handleShare(result.replies[selectedStyle])} className="h-9 w-9 shrink-0" aria-label={t.generate.share} title={t.generate.share}>
                 <Share2 className="h-4 w-4" />
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0"
-                aria-label={t.generate.favorite}
-                title={t.generate.favorite}
-              >
+              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label={t.generate.favorite} title={t.generate.favorite}>
                 <Heart className="h-4 w-4" />
               </Button>
-              <Button
-                variant="outline"
-                size="icon"
-                className="h-9 w-9 shrink-0"
-                aria-label={t.generate.save}
-                title={t.generate.save}
-              >
+              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label={t.generate.save} title={t.generate.save}>
                 <BookmarkPlus className="h-4 w-4" />
               </Button>
             </div>
           </div>
 
-          {/* All 3 replies preview - controlled, no layout jumps */}
           <div className="rounded-lg border border-border bg-card/50">
-            <button
-              type="button"
-              onClick={() => setShowAllOptions((v) => !v)}
-              className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
-              aria-expanded={showAllOptions}
-            >
+            <button type="button" onClick={() => setShowAllOptions((v) => !v)} className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors" aria-expanded={showAllOptions}>
               <span>{locale === "ar" ? "عرض الخيارات الثلاثة" : "View all 3 options"}</span>
               <span className="text-[10px]">{showAllOptions ? "▲" : "▼"}</span>
             </button>
             {showAllOptions && (
               <div className="px-3 pb-3 space-y-2">
                 {(["soft", "persuasive", "directClosing"] as const).map((style) => (
-                  <div
-                    key={style}
-                    className={`rounded-lg border p-3 cursor-pointer transition-colors ${
-                      selectedStyle === style ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"
-                    }`}
-                    onClick={() => setSelectedStyle(style)}
-                  >
+                  <div key={style} className={`rounded-lg border p-3 cursor-pointer transition-colors ${selectedStyle === style ? "border-primary bg-primary/5" : "border-border hover:border-primary/50"}`} onClick={() => setSelectedStyle(style)}>
                     <div className="flex items-center justify-between mb-1.5">
                       <span className="text-xs font-semibold text-primary">{styleLabels[style]}</span>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        className="h-7 w-7 p-0"
-                        onClick={(e) => { e.stopPropagation(); handleCopy(result.replies[style], style); }}
-                      >
+                      <Button variant="ghost" size="sm" className="h-7 w-7 p-0" onClick={(e) => { e.stopPropagation(); handleCopy(result.replies[style], style); }}>
                         {copiedStyle === style ? <Check className="h-3 w-3" /> : <Copy className="h-3 w-3" />}
                       </Button>
                     </div>
@@ -417,13 +382,11 @@ export default function GeneratePage() {
             )}
           </div>
 
-          {/* Follow-up */}
           <div className="rounded-lg border border-border bg-muted/50 p-3">
             <p className="text-xs font-medium text-muted-foreground mb-1">{t.generate.followUp}</p>
             <p className="text-sm leading-relaxed">{result.followUp}</p>
           </div>
 
-          {/* Bottom spacer so nothing hides behind bottom nav */}
           <div className="h-6" aria-hidden />
         </div>
       )}
@@ -431,7 +394,7 @@ export default function GeneratePage() {
       <UpgradeModal
         open={upgradeOpen}
         onOpenChange={setUpgradeOpen}
-        plan={(usage.plan === "guest" || usage.plan === "free" ? "pro" : usage.plan === "starter" ? "pro" : usage.plan === "pro" ? "business" : "business") as PlanKey}
+        plan={"pro" as PlanKey}
       />
     </div>
   );

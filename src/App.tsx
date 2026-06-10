@@ -11,6 +11,7 @@ import GeneratePage from "./pages/GeneratePage";
 import HistoryPage from "./pages/HistoryPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import SettingsPage from "./pages/SettingsPage";
+import BusinessProfilePage from "./pages/BusinessProfilePage";
 import SignInPage from "./pages/SignInPage";
 import NotFound from "./pages/NotFound";
 
@@ -31,6 +32,7 @@ const App = () => (
               <Route path="generate" element={<GeneratePage />} />
               <Route path="history" element={<HistoryPage />} />
               <Route path="favorites" element={<FavoritesPage />} />
+              <Route path="business" element={<BusinessProfilePage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

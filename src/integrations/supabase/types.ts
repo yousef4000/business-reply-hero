@@ -14,6 +14,72 @@ export type Database = {
   }
   public: {
     Tables: {
+      business_profiles: {
+        Row: {
+          branches: string | null
+          business_name: string | null
+          business_type: string | null
+          created_at: string
+          custom_notes: string | null
+          description: string | null
+          faqs: string | null
+          id: string
+          language: string | null
+          menu_items: string | null
+          preferred_tone: string | null
+          pricing: string | null
+          products: string | null
+          return_policy: string | null
+          services: string | null
+          shipping_policy: string | null
+          updated_at: string
+          user_id: string
+          working_hours: string | null
+        }
+        Insert: {
+          branches?: string | null
+          business_name?: string | null
+          business_type?: string | null
+          created_at?: string
+          custom_notes?: string | null
+          description?: string | null
+          faqs?: string | null
+          id?: string
+          language?: string | null
+          menu_items?: string | null
+          preferred_tone?: string | null
+          pricing?: string | null
+          products?: string | null
+          return_policy?: string | null
+          services?: string | null
+          shipping_policy?: string | null
+          updated_at?: string
+          user_id: string
+          working_hours?: string | null
+        }
+        Update: {
+          branches?: string | null
+          business_name?: string | null
+          business_type?: string | null
+          created_at?: string
+          custom_notes?: string | null
+          description?: string | null
+          faqs?: string | null
+          id?: string
+          language?: string | null
+          menu_items?: string | null
+          preferred_tone?: string | null
+          pricing?: string | null
+          products?: string | null
+          return_policy?: string | null
+          services?: string | null
+          shipping_policy?: string | null
+          updated_at?: string
+          user_id?: string
+          working_hours?: string | null
+        }
+        Relationships: []
+      }
       play_purchases: {
         Row: {
           auto_renewing: boolean | null
@@ -71,6 +137,9 @@ export type Database = {
           id: string
           period_start: string
           plan: Database["public"]["Enums"]["plan_tier"]
+          trial_ends_at: string | null
+          trial_replies_used: number
+          trial_started_at: string | null
           updated_at: string
           user_id: string
         }
@@ -79,6 +148,9 @@ export type Database = {
           id?: string
           period_start?: string
           plan?: Database["public"]["Enums"]["plan_tier"]
+          trial_ends_at?: string | null
+          trial_replies_used?: number
+          trial_started_at?: string | null
           updated_at?: string
           user_id: string
         }
@@ -87,6 +159,9 @@ export type Database = {
           id?: string
           period_start?: string
           plan?: Database["public"]["Enums"]["plan_tier"]
+          trial_ends_at?: string | null
+          trial_replies_used?: number
+          trial_started_at?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -144,6 +219,10 @@ export type Database = {
           period_start: string
           plan: Database["public"]["Enums"]["plan_tier"]
           plan_limit: number
+          plan_state: string
+          trial_ends_at: string
+          trial_limit: number
+          trial_used: number
           used: number
         }[]
       }
@@ -154,6 +233,9 @@ export type Database = {
           id: string
           period_start: string
           plan: Database["public"]["Enums"]["plan_tier"]
+          trial_ends_at: string | null
+          trial_replies_used: number
+          trial_started_at: string | null
           updated_at: string
           user_id: string
         }
@@ -170,6 +252,10 @@ export type Database = {
           period_start: string
           plan: Database["public"]["Enums"]["plan_tier"]
           plan_limit: number
+          plan_state: string
+          trial_ends_at: string
+          trial_limit: number
+          trial_used: number
           used: number
         }[]
       }
@@ -179,6 +265,10 @@ export type Database = {
           period_start: string
           plan: Database["public"]["Enums"]["plan_tier"]
           plan_limit: number
+          plan_state: string
+          trial_ends_at: string
+          trial_limit: number
+          trial_used: number
           used: number
         }[]
       }
