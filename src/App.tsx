@@ -11,6 +11,7 @@ import GeneratePage from "./pages/GeneratePage";
 import HistoryPage from "./pages/HistoryPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import SettingsPage from "./pages/SettingsPage";
+import BusinessProfilePage from "./pages/BusinessProfilePage";
 import SignInPage from "./pages/SignInPage";
 import NotFound from "./pages/NotFound";
 
