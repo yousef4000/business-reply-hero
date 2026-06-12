@@ -262,7 +262,7 @@ Return: customer_concerns (1-5 short items in customer's language, max 6 words e
           required: ["type", "strategy", "coaching_tip"],
         },
       },
-      required: ["classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
+      required: ["customer_concerns", "classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
     };
 
     const promptChars = SYSTEM_PROMPT.length + userPrompt.length;
