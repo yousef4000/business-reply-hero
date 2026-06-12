@@ -13,7 +13,23 @@ interface Props {
 export function TrialBanner({ onUpgrade, compact }: Props) {
   const usage = useUsage();
   const { locale } = useLanguage();
-  if (usage.loading || usage.isGuest) return null;
+  if (usage.loading) return null;
+
+  if (usage.isGuest) {
+    return (
+      <div className="rounded-xl border border-primary/30 bg-primary/5 p-3 flex items-center justify-between gap-3">
+        <div className="flex items-center gap-2 text-sm">
+          <Sparkles className="h-4 w-4 text-primary" />
+          <span className="font-medium">
+            {locale === "ar" ? "ابدأ تجربتك المجانية" : "Start your free trial"}
+          </span>
+        </div>
+        <Button asChild size="sm" variant="outline">
+          <a href="/signin">{locale === "ar" ? "تسجيل الدخول" : "Sign in"}</a>
+        </Button>
+      </div>
+    );
+  }
 
   if (usage.planState === "paid") return null;
 
