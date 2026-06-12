@@ -1,15 +1,22 @@
 // Google Play Billing wrapper — runs only on Android (Capacitor native).
-// On web/PWA the methods short-circuit so the UI can fall back to WhatsApp.
+// On web/PWA `isBillingAvailable()` returns false and the UI shows a
+// "coming soon via Google Play" placeholder instead.
 import { Capacitor } from "@capacitor/core";
 import { supabase } from "@/integrations/supabase/client";
 
 export type PaidPlan = "starter" | "pro" | "business";
+export type BillingPeriod = "monthly" | "yearly";
 
-export const PLAY_PRODUCTS: Record<PaidPlan, string> = {
-  starter: "starter_monthly",
-  pro: "pro_monthly",
-  business: "business_monthly",
+// Centralized Product ID map. Edit here when Play Console SKUs change.
+// Format: PLAY_PRODUCTS[plan][period] = "<sku>"
+export const PLAY_PRODUCTS: Record<PaidPlan, Record<BillingPeriod, string>> = {
+  starter: { monthly: "starter_monthly", yearly: "starter_yearly" },
+  pro:     { monthly: "pro_monthly",     yearly: "pro_yearly" },
+  business:{ monthly: "business_monthly",yearly: "business_yearly" },
 };
+
+export const productIdFor = (plan: PaidPlan, period: BillingPeriod = "monthly") =>
+  PLAY_PRODUCTS[plan][period];
 
 export const PLAN_REPLY_LIMITS: Record<PaidPlan, number> = {
   starter: 150,
