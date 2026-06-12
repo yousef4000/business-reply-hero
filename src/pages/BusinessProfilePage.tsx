@@ -274,6 +274,9 @@ const AR: typeof EN = {
   return_policy: "سياسة الاسترجاع",
   shipping_policy: "سياسة الشحن",
   custom_notes: "أي معلومات إضافية للذكاء الاصطناعي",
+  ai_instructions_section: "تعليمات الذكاء الاصطناعي",
+  ai_instructions: "كيف تريد للذكاء الاصطناعي أن يمثل عملك؟",
+  ai_instructions_placeholder: "مثال: كن مهنياً وودوداً. لا تعد بخدمات غير متوفرة. تجنب النصائح الطبية. ردود واتساب قصيرة ومطمئنة.",
   save: "حفظ ملف العمل",
   choose: "اختر",
 };
