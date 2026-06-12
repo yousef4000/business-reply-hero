@@ -12,7 +12,11 @@ import HistoryPage from "./pages/HistoryPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import SettingsPage from "./pages/SettingsPage";
 import BusinessProfilePage from "./pages/BusinessProfilePage";
+import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import SignInPage from "./pages/SignInPage";
+import PrivacyPage from "./pages/PrivacyPage";
+import TermsPage from "./pages/TermsPage";
+import DataDeletionPage from "./pages/DataDeletionPage";
 import NotFound from "./pages/NotFound";
 
 const queryClient = new QueryClient();
@@ -27,12 +31,16 @@ const App = () => (
           <Routes>
             <Route path="/" element={<LandingPage />} />
             <Route path="/signin" element={<SignInPage />} />
+            <Route path="/privacy" element={<PrivacyPage />} />
+            <Route path="/terms" element={<TermsPage />} />
+            <Route path="/data-deletion" element={<DataDeletionPage />} />
             <Route path="/app" element={<AppLayout />}>
               <Route index element={<Dashboard />} />
               <Route path="generate" element={<GeneratePage />} />
               <Route path="history" element={<HistoryPage />} />
               <Route path="favorites" element={<FavoritesPage />} />
               <Route path="business" element={<BusinessProfilePage />} />
+              <Route path="knowledge" element={<KnowledgeBasePage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
