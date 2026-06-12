@@ -269,18 +269,38 @@ serve(async (req) => {
     const tBuild = performance.now();
     const businessContext = buildBusinessContext(bp, customerMessage);
 
+    // OPERATIONAL CONTEXT — optional live case data passed by the client.
+    // Accept either a string or an object of key/value pairs.
+    let operationalBlock = "";
+    if (operationalContext) {
+      if (typeof operationalContext === "string" && operationalContext.trim()) {
+        operationalBlock = `\n\nOPERATIONAL CONTEXT (live case data — authoritative for THIS case, never invent missing fields):\n${operationalContext.trim()}`;
+      } else if (typeof operationalContext === "object") {
+        const ocLines = Object.entries(operationalContext)
+          .filter(([, v]) => v !== null && v !== undefined && String(v).trim() !== "")
+          .map(([k, v]) => `- ${k}: ${String(v).trim()}`);
+        if (ocLines.length) {
+          operationalBlock = `\n\nOPERATIONAL CONTEXT (live case data — authoritative for THIS case, never invent missing fields):\n${ocLines.join("\n")}`;
+        }
+      }
+    }
+
     const userPrompt = `Platform: ${platform || "chat"}
 Business Type: ${businessType || bp?.business_type || "general"}
 Goal: ${replyGoal || "help customer move forward"}
 Tone: ${tone || bp?.preferred_tone || "professional"}
 Interface Language (for followUp/customerIntent only): ${language || "en"}
 
-${businessContext}
+${businessContext}${operationalBlock}
 
-CUSTOMER MESSAGE (reply in this language + dialect):
+CUSTOMER MESSAGE (reply in this language + dialect — do NOT paraphrase it back):
 """${customerMessage}"""
 
-Return JSON with: customer_questions (every explicit question the customer asked, in their language — empty array if none), customer_concerns (1-5 short items, max 6 words each), customer_goals (1-3 short items), customer_context (concrete circumstances mentioned, or empty array), 3 replies (soft, persuasive, directClosing) — each MUST address every customer_question, acknowledge concerns, and honor context. Then classification, leadTemperature, followUp, objection_analysis.`;
+TASK:
+1. Silently run STEP 1 (deep analysis) — fill customer_questions, implicit_questions, customer_concerns, customer_context, known_facts, unknown_facts.
+2. Write 3 replies that ANSWER every explicit + implicit question, address the biggest worry first, state known_facts confidently, acknowledge unknown_facts honestly (never invent fees/timelines/causes/sample issues), and end with ONE concrete next step.
+3. Run the self-check; silently rewrite once if any item fails.
+4. Return JSON matching the schema. No paraphrasing, no chain-of-thought, no markdown.`;
 
     const schema = {
       type: "object",
@@ -288,29 +308,40 @@ Return JSON with: customer_questions (every explicit question the customer asked
       properties: {
         customer_questions: {
           type: "array",
-          description: "Every explicit question the customer asked, in their language. Max 10 words each. Empty array if none.",
+          description: "EVERY explicit question literally in the message, in the customer's language. One entry per question mark. Empty array if none.",
           items: { type: "string" },
-          maxItems: 6,
+          maxItems: 8,
+        },
+        implicit_questions: {
+          type: "array",
+          description: "Questions the customer did NOT ask aloud but clearly needs answered. 0-5 items, in their language.",
+          items: { type: "string" },
+          maxItems: 5,
         },
         customer_concerns: {
           type: "array",
-          description: "1-5 short concern items in the customer's language, max 6 words each.",
+          description: "1-5 short underlying worries in the customer's language, max 6 words each.",
           items: { type: "string" },
           minItems: 1,
           maxItems: 5,
-        },
-        customer_goals: {
-          type: "array",
-          description: "1-3 short items describing what the customer wants right now, in their language.",
-          items: { type: "string" },
-          minItems: 1,
-          maxItems: 3,
         },
         customer_context: {
           type: "array",
           description: "Concrete circumstances mentioned (appointment tomorrow, deadline, traveling…). Empty if none.",
           items: { type: "string" },
           maxItems: 5,
+        },
+        known_facts: {
+          type: "array",
+          description: "Facts you can confirm now because they appear in BUSINESS FACTS / VERIFIED FACTS / OPERATIONAL CONTEXT. Each short, in the customer's language. Empty if none.",
+          items: { type: "string" },
+          maxItems: 6,
+        },
+        unknown_facts: {
+          type: "array",
+          description: "Things the customer asked about that are NOT in any provided context (must be acknowledged honestly, never invented). Empty if everything is known.",
+          items: { type: "string" },
+          maxItems: 6,
         },
         classification: {
           type: "object",
@@ -344,7 +375,7 @@ Return JSON with: customer_questions (every explicit question the customer asked
           required: ["type", "strategy", "coaching_tip"],
         },
       },
-      required: ["customer_questions", "customer_concerns", "customer_goals", "customer_context", "classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
+      required: ["customer_questions", "implicit_questions", "customer_concerns", "customer_context", "known_facts", "unknown_facts", "classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
     };
 
     const promptChars = SYSTEM_PROMPT.length + userPrompt.length;
