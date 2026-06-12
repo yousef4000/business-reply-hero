@@ -222,8 +222,16 @@ export default function GeneratePage() {
       usage.refresh();
     } catch (err: any) {
       console.error("Generation error:", err);
-      setError(err.message || "Something went wrong");
-      toast({ title: t.common.error, variant: "destructive" });
+      if (err?.name === "AbortError") {
+        setError(
+          locale === "ar"
+            ? "استغرق توليد الرد وقتاً أطول من المتوقع. حاول مرة أخرى."
+            : "Generation took longer than expected. Please try again.",
+        );
+      } else {
+        setError(err.message || "Something went wrong");
+        toast({ title: t.common.error, variant: "destructive" });
+      }
     } finally {
       clearTimeout(abortTimer);
       setIsGenerating(false);
