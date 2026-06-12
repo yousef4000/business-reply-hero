@@ -182,21 +182,25 @@ export default function LandingPage() {
         <p className="text-sm text-muted-foreground text-center mb-10">
           {isAr ? "ابدأ بتجربة مجانية. ارتقِ متى احتجت." : "Start free. Upgrade when you need more."}
         </p>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-4xl mx-auto">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 max-w-6xl mx-auto">
           {[
             {
               key: "trial",
               name: isAr ? "تجربة مجانية" : "Free Trial",
               price: isAr ? "مجانًا" : "Free",
-              tag: isAr ? "7 أيام · 30 رد" : "7 days · 30 replies",
+              tag: (t.plans as any).trialTag ?? (isAr ? "7 أيام مجانية + 30 رسالة" : "7 days free + 30 replies"),
               cta: isAr ? "ابدأ التجربة" : "Start trial",
               link: "/app/generate",
-              features: [
-                isAr ? "كل الميزات المتقدمة" : "All premium features",
-                isAr ? "قاعدة معرفة العمل" : "Business knowledge base",
-                isAr ? "مدرّب الاعتراضات" : "Objection coach",
-                isAr ? "قوالب ذكية" : "Smart templates",
-              ],
+              features: t.plans.features.free as unknown as string[],
+              highlight: false,
+            },
+            {
+              key: "starter",
+              name: t.plans.starter,
+              price: t.plans.price.starter,
+              tag: `150 ${isAr ? "رد شهريًا" : "replies/mo"}`,
+              cta: t.plans.cta.starter,
+              features: t.plans.features.starter as unknown as string[],
               highlight: false,
             },
             {
@@ -205,12 +209,7 @@ export default function LandingPage() {
               price: t.plans.price.pro,
               tag: `500 ${isAr ? "رد شهريًا" : "replies/mo"}`,
               cta: t.plans.cta.pro,
-              features: [
-                isAr ? "كل ميزات التجربة" : "Everything in Trial",
-                isAr ? "500 رد شهريًا" : "500 replies / month",
-                isAr ? "أولوية في الإنشاء" : "Priority generation",
-                isAr ? "دعم سريع" : "Fast support",
-              ],
+              features: t.plans.features.pro as unknown as string[],
               highlight: true,
             },
             {
@@ -219,12 +218,7 @@ export default function LandingPage() {
               price: t.plans.price.business,
               tag: `2000 ${isAr ? "رد شهريًا" : "replies/mo"}`,
               cta: t.plans.cta.business,
-              features: [
-                isAr ? "كل ميزات Pro" : "Everything in Pro",
-                isAr ? "2000 رد شهريًا" : "2000 replies / month",
-                isAr ? "للفرق والوكالات" : "For teams & agencies",
-                isAr ? "دعم بالأولوية" : "Priority support",
-              ],
+              features: t.plans.features.business as unknown as string[],
               highlight: false,
             },
           ].map((p) => (
