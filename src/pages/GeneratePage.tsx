@@ -129,33 +129,67 @@ export default function GeneratePage() {
     setLimitReached(false);
     setResult(null);
 
-    // Client-side safety timeout — must exceed edge function timeout (45s) but
-    // still finite so the spinner can never get stuck forever.
-    const clientTimeoutMs = 60_000;
+    // Direct fetch with a hard abort — avoids supabase-js invoke() hanging
+    // forever on a stuck auth-session lock (request never even gets sent).
+    const controller = new AbortController();
     const abortTimer = setTimeout(() => {
-      console.warn("[generate] client timeout reached, clearing loading state");
-      setIsGenerating(false);
-      setError(
-        locale === "ar"
-          ? "استغرق توليد الرد وقتاً أطول من المتوقع. حاول مرة أخرى."
-          : "Generation took longer than expected. Please try again.",
-      );
-    }, clientTimeoutMs);
+      console.warn("[generate] client timeout reached, aborting request");
+      controller.abort();
+    }, 50_000);
 
     try {
-      const { data, error: fnError } = await supabase.functions.invoke("generate-reply", {
-        body: {
-          platform: platform || "chat",
-          businessType,
-          replyGoal,
-          tone: tone || "professional",
-          customerMessage,
-          language: locale,
-        },
-      });
+      // Get the access token with its own short timeout so a deadlocked
+      // session refresh can't block the request from ever being sent.
+      let accessToken: string | null = null;
+      try {
+        const sess = await Promise.race([
+          supabase.auth.getSession(),
+          new Promise<never>((_, rej) => setTimeout(() => rej(new Error("session_timeout")), 5_000)),
+        ]);
+        accessToken = (sess as any)?.data?.session?.access_token ?? null;
+      } catch {
+        console.warn("[generate] getSession timed out, falling back to stored token");
+        try {
+          const projectId = import.meta.env.VITE_SUPABASE_PROJECT_ID;
+          const raw = localStorage.getItem(`sb-${projectId}-auth-token`);
+          if (raw) accessToken = JSON.parse(raw)?.access_token ?? null;
+        } catch { /* ignore */ }
+      }
 
-      const payload = (data ?? (fnError as any)?.context?.body) as any;
-      const code = payload?.code || payload?.error;
+      if (!accessToken) {
+        setLimitReached(true);
+        setError(signInMessage);
+        return;
+      }
+
+      console.log("[generate] sending request");
+      const t0 = Date.now();
+      const resp = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/generate-reply`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${accessToken}`,
+            apikey: import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY,
+          },
+          signal: controller.signal,
+          body: JSON.stringify({
+            platform: platform || "chat",
+            businessType,
+            replyGoal,
+            tone: tone || "professional",
+            customerMessage,
+            language: locale,
+          }),
+        },
+      );
+      console.log(`[generate] response status=${resp.status} in ${Date.now() - t0}ms`);
+
+      const payload = (await resp.json().catch(() => null)) as any;
+      const data = resp.ok ? payload : null;
+      const fnError = resp.ok ? null : new Error(payload?.error || `HTTP ${resp.status}`);
+      const code = payload?.code || (!resp.ok ? payload?.error : undefined);
 
       if (code === "TRIAL_EXPIRED") {
         setLimitReached(true);
@@ -188,8 +222,16 @@ export default function GeneratePage() {
       usage.refresh();
     } catch (err: any) {
       console.error("Generation error:", err);
-      setError(err.message || "Something went wrong");
-      toast({ title: t.common.error, variant: "destructive" });
+      if (err?.name === "AbortError") {
+        setError(
+          locale === "ar"
+            ? "استغرق توليد الرد وقتاً أطول من المتوقع. حاول مرة أخرى."
+            : "Generation took longer than expected. Please try again.",
+        );
+      } else {
+        setError(err.message || "Something went wrong");
+        toast({ title: t.common.error, variant: "destructive" });
+      }
     } finally {
       clearTimeout(abortTimer);
       setIsGenerating(false);
