@@ -17,8 +17,18 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+// Hard cap for the OpenAI call. Anything past this is almost certainly hung
+// (gpt-4o p99 for this prompt size is ~25s). We surface a clean 504 so the
+// client's loading state always clears.
+const OPENAI_TIMEOUT_MS = 45_000;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const reqId = crypto.randomUUID().slice(0, 8);
+  const t0 = performance.now();
+  const mark = (label: string, start: number) =>
+    console.log(`[gen ${reqId}] ${label}: ${(performance.now() - start).toFixed(0)}ms`);
 
   try {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -38,6 +48,7 @@ serve(async (req) => {
     }
 
     // Identify caller — auth required (guest path removed).
+    const tAuth = performance.now();
     const authHeader = req.headers.get("Authorization") ?? "";
     const accessToken = authHeader.replace("Bearer ", "").trim();
     let userId: string | null = null;
@@ -51,11 +62,14 @@ serve(async (req) => {
     if (!userId) {
       return json({ error: "AUTH_REQUIRED", code: "AUTH_REQUIRED" }, 401);
     }
+    mark("auth", tAuth);
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Enforce limit
+    const tUsage = performance.now();
     const { data: usageData, error: usageErr } = await admin.rpc("consume_reply_credit", { _user_id: userId });
+    mark("consume_reply_credit", tUsage);
     if (usageErr) {
       const msg = usageErr.message || "";
       if (msg.includes("TRIAL_EXPIRED")) return json({ error: "TRIAL_EXPIRED", code: "TRIAL_EXPIRED" }, 403);
