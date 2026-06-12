@@ -110,6 +110,98 @@ export type Database = {
         }
         Relationships: []
       }
+      knowledge_chunks: {
+        Row: {
+          content: string
+          created_at: string
+          embedding: string | null
+          id: string
+          metadata: Json | null
+          source_id: string
+          token_estimate: number | null
+          user_id: string
+        }
+        Insert: {
+          content: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_id: string
+          token_estimate?: number | null
+          user_id: string
+        }
+        Update: {
+          content?: string
+          created_at?: string
+          embedding?: string | null
+          id?: string
+          metadata?: Json | null
+          source_id?: string
+          token_estimate?: number | null
+          user_id?: string
+        }
+        Relationships: [
+          {
+            foreignKeyName: "knowledge_chunks_source_id_fkey"
+            columns: ["source_id"]
+            isOneToOne: false
+            referencedRelation: "knowledge_sources"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      knowledge_sources: {
+        Row: {
+          char_count: number | null
+          chunk_count: number | null
+          created_at: string
+          error_message: string | null
+          id: string
+          original_name: string | null
+          raw_text: string | null
+          source_type: string
+          source_url: string | null
+          status: string
+          storage_path: string | null
+          title: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          char_count?: number | null
+          chunk_count?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          original_name?: string | null
+          raw_text?: string | null
+          source_type: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          char_count?: number | null
+          chunk_count?: number | null
+          created_at?: string
+          error_message?: string | null
+          id?: string
+          original_name?: string | null
+          raw_text?: string | null
+          source_type?: string
+          source_url?: string | null
+          status?: string
+          storage_path?: string | null
+          title?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       play_purchases: {
         Row: {
           auto_renewing: boolean | null
@@ -224,6 +316,33 @@ export type Database = {
         }
         Relationships: []
       }
+      user_consents: {
+        Row: {
+          accepted: boolean
+          accepted_at: string
+          consent_type: string
+          id: string
+          metadata: Json | null
+          user_id: string
+        }
+        Insert: {
+          accepted?: boolean
+          accepted_at?: string
+          consent_type: string
+          id?: string
+          metadata?: Json | null
+          user_id: string
+        }
+        Update: {
+          accepted?: boolean
+          accepted_at?: string
+          consent_type?: string
+          id?: string
+          metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -256,6 +375,7 @@ export type Database = {
           used: number
         }[]
       }
+      delete_user_data: { Args: { _user_id: string }; Returns: undefined }
       get_or_create_subscription: {
         Args: { _user_id: string }
         Returns: {
@@ -287,6 +407,19 @@ export type Database = {
           trial_limit: number
           trial_used: number
           used: number
+        }[]
+      }
+      match_knowledge: {
+        Args: {
+          _match_count?: number
+          _query_embedding: string
+          _user_id: string
+        }
+        Returns: {
+          content: string
+          id: string
+          similarity: number
+          source_id: string
         }[]
       }
       my_usage_status: {
