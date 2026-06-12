@@ -217,7 +217,7 @@ ${businessContext}
 CUSTOMER MESSAGE (reply in this language + dialect):
 """${customerMessage}"""
 
-Return classification (with detectedLanguage, detectedDialect, detectedEmotion), 3 replies (soft, persuasive, directClosing), leadTemperature, followUp (one short tip for the owner in interface language), objection_analysis.`;
+Return: customer_concerns (1-5 short items in customer's language, max 6 words each), classification (with detectedLanguage, detectedDialect, detectedEmotion), 3 replies (soft, persuasive, directClosing) that each address most of the customer_concerns, leadTemperature, followUp (one short tip for the owner in interface language), objection_analysis.`;
 
     const schema = {
       type: "object",
