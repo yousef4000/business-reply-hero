@@ -397,7 +397,7 @@ TASK:
       ],
       temperature: 0.65,
       top_p: 0.9,
-      max_output_tokens: 900,
+      max_output_tokens: 1100,
       text: { format: { type: "json_schema", name: "generate_reply", strict: true, schema } },
     });
 
