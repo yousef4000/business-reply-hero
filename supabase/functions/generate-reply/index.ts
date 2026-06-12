@@ -191,7 +191,8 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { platform, businessType, replyGoal, tone, customerMessage, language } = body ?? {};
+    const { platform, businessType, replyGoal, tone, customerMessage, language, debug } = body ?? {};
+    const debugMode = debug === true || req.headers.get("x-debug") === "1";
 
     if (!customerMessage?.trim()) {
       return json({ error: "Customer message is required" }, 400);
