@@ -8,8 +8,8 @@ const corsHeaders = {
 };
 
 const OPENAI_URL = "https://api.openai.com/v1/responses";
-const OPENAI_MODEL = "gpt-4o-mini";
-const GUEST_LIMIT = 3;
+// Quality-first: gpt-4o produces noticeably more natural, dialect-accurate Arabic than gpt-4o-mini.
+const OPENAI_MODEL = "gpt-4o";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -31,13 +31,13 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { platform, businessType, replyGoal, tone, customerMessage, language, guestUsage } = body ?? {};
+    const { platform, businessType, replyGoal, tone, customerMessage, language } = body ?? {};
 
     if (!customerMessage?.trim()) {
       return json({ error: "Customer message is required" }, 400);
     }
 
-    // Identify caller
+    // Identify caller — auth required (guest path removed).
     const authHeader = req.headers.get("Authorization") ?? "";
     const accessToken = authHeader.replace("Bearer ", "").trim();
     let userId: string | null = null;
@@ -48,59 +48,37 @@ serve(async (req) => {
       const { data: userData } = await userClient.auth.getUser();
       if (userData?.user) userId = userData.user.id;
     }
+    if (!userId) {
+      return json({ error: "AUTH_REQUIRED", code: "AUTH_REQUIRED" }, 401);
+    }
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Enforce limit
-    let usedAfter = 0;
-    let planLimit = 0;
-    let planName = "guest";
-    let isTrialUser = false;
-
-    if (userId) {
-      const { data, error } = await admin.rpc("consume_reply_credit", { _user_id: userId });
-      if (error) {
-        const msg = error.message || "";
-        if (msg.includes("TRIAL_EXPIRED")) {
-          return json({ error: "TRIAL_EXPIRED", code: "TRIAL_EXPIRED" }, 403);
-        }
-        if (msg.includes("TRIAL_LIMIT_REACHED")) {
-          return json({ error: "TRIAL_LIMIT_REACHED", code: "TRIAL_LIMIT_REACHED" }, 403);
-        }
-        if (msg.includes("USAGE_LIMIT_REACHED")) {
-          return json({ error: "USAGE_LIMIT_REACHED", code: "USAGE_LIMIT_REACHED" }, 403);
-        }
-        console.error("consume_reply_credit error:", error);
-        return json({ error: "Failed to verify usage" }, 500);
-      }
-      const row: any = Array.isArray(data) ? data[0] : data;
-      usedAfter = row?.used ?? 0;
-      planLimit = row?.plan_limit ?? 0;
-      planName = row?.plan ?? "free";
-      isTrialUser = row?.plan_state === "trial";
-    } else {
-      const guestUsed = Math.max(0, Number(guestUsage ?? 0));
-      if (guestUsed >= GUEST_LIMIT) {
-        return json({ error: "GUEST_LIMIT_REACHED", code: "GUEST_LIMIT_REACHED", used: guestUsed, limit: GUEST_LIMIT, plan: "guest" }, 403);
-      }
-      usedAfter = guestUsed + 1;
-      planLimit = GUEST_LIMIT;
-      planName = "guest";
+    const { data: usageData, error: usageErr } = await admin.rpc("consume_reply_credit", { _user_id: userId });
+    if (usageErr) {
+      const msg = usageErr.message || "";
+      if (msg.includes("TRIAL_EXPIRED")) return json({ error: "TRIAL_EXPIRED", code: "TRIAL_EXPIRED" }, 403);
+      if (msg.includes("TRIAL_LIMIT_REACHED")) return json({ error: "TRIAL_LIMIT_REACHED", code: "TRIAL_LIMIT_REACHED" }, 403);
+      if (msg.includes("USAGE_LIMIT_REACHED")) return json({ error: "USAGE_LIMIT_REACHED", code: "USAGE_LIMIT_REACHED" }, 403);
+      console.error("consume_reply_credit error:", usageErr);
+      return json({ error: "Failed to verify usage" }, 500);
     }
+    const urow: any = Array.isArray(usageData) ? usageData[0] : usageData;
+    const usedAfter = urow?.used ?? 0;
+    const planLimit = urow?.plan_limit ?? 0;
+    const planName = urow?.plan ?? "free";
+    const isTrialUser = urow?.plan_state === "trial";
 
     // Fetch business profile (authoritative source from DB, ignore client-supplied)
-    let bp: any = null;
-    if (userId) {
-      const { data } = await admin
-        .from("business_profiles")
-        .select("*")
-        .eq("user_id", userId)
-        .maybeSingle();
-      bp = data;
-    }
+    const { data: bp } = await admin
+      .from("business_profiles")
+      .select("*")
+      .eq("user_id", userId)
+      .maybeSingle();
 
     const businessContext = bp
-      ? `\nBUSINESS KNOWLEDGE BASE (ALWAYS PRIORITIZE THESE FACTS — never contradict them, never invent details):
+      ? `\nBUSINESS KNOWLEDGE BASE (authoritative — NEVER contradict, NEVER invent details not listed here):
 - Business Name: ${bp.business_name || "—"}
 - Business Type: ${bp.business_type || "—"}
 - Description: ${bp.description || "—"}
@@ -114,52 +92,102 @@ serve(async (req) => {
 - Shipping Policy: ${bp.shipping_policy || "—"}
 - FAQs: ${bp.faqs || "—"}
 - Notes: ${bp.custom_notes || "—"}
-Use specific facts from above when relevant. If the customer asks about something not covered, ask one focused clarifying question instead of inventing details.`
-      : "";
+Quote real prices, real branch names, real hours when relevant. If something is missing, ask ONE focused clarifying question — never fabricate.`
+      : "\n(No business profile saved. Keep replies generic but professional; do not invent specific prices, branches, or policies.)";
 
-    const systemPrompt = `You are a senior Arabic-speaking sales & customer-service expert AND an AI sales coach writing replies on behalf of a small business owner. Your replies must feel HUMAN — like a real, friendly, knowledgeable shop owner texting a customer back.
+    const systemPrompt = `You are an elite human sales rep and customer-support agent texting on behalf of a small business. Your single most important rule: the customer must believe a REAL PERSON wrote this — never an AI, never a template.
 
-LANGUAGE & TONE
-- Reply ONLY in the language of the customer message. Arabic = natural Egyptian/Gulf-friendly MSA, not formal, not robotic, not translated-from-English.
-- Never use empty filler ("Thank you for reaching out", "نحن نقدّر تواصلك", etc.).
-- No exaggeration, no ALL-CAPS, max 1 emoji.
-- Address the EXACT words/concern of the customer.
+LANGUAGE & DIALECT DETECTION (do this first, silently)
+- Detect the customer's language: English or Arabic.
+- If Arabic, detect the dialect from word choice, particles, and spelling:
+  * Egyptian: "ايه، ازيك، علشان، عايز، فين، كده، ده/دي، هو/هي، بقى، خالص، يلا"
+  * Gulf (Khaleeji): "وش، شلون، أبغى، تو، عاد، يبيلك، الحين، زين، يبه، تكفى، إيه"
+  * Levantine (Shami): "شو، كيفك، بدي، هلق، هيك، منيح، عنجد، شلونك، طيب"
+  * Formal MSA: full vowel-correct verbs, "أرغب، أود، تفضّل، سيادتك"
+- REPLY in the SAME language AND the SAME dialect the customer used. Egyptian customer → Egyptian Arabic. Gulf customer → Gulf. Shami → Shami. English → English.
+- Use Formal MSA ONLY when: customer wrote formal MSA, the platform is email, or the business profile explicitly requests formal tone.
+- Never mix dialects. Never translate from English to robotic-sounding MSA.
+
+HUMAN VOICE RULES (non-negotiable)
+- Sound like a real person texting on their phone — warm, confident, conversational.
+- BANNED openers (do NOT start with these, ever, unless the customer is angry/complaining):
+  * Arabic: "أفهم ما تقصده", "أقدر استفسارك", "شكراً لتواصلك", "نحن نقدّر تواصلك", "يسعدنا تواصلك", "مرحباً بك في..."
+  * English: "Thank you for reaching out", "I understand your concern", "We appreciate your message", "I hope this message finds you well"
+- No corporate filler. No "We strive to..." / "نسعى دائماً...". No exaggerated marketing claims.
+- Max 1 emoji per reply, only if it genuinely fits the tone. Often zero.
+- No ALL CAPS. No exclamation spam.
+- Vary sentence openings across the 3 replies — never start two replies with the same word.
+
+EMOTIONAL INTELLIGENCE
+- Detect the customer's emotion: angry, confused, interested, curious, excited, disappointed, skeptical, neutral.
+- Match tone to emotion: angry → calm + ownership; skeptical → proof + confidence; excited → match energy; confused → clarify simply.
+
+BUSINESS CONTEXT
+- ALWAYS use facts from the business knowledge base before generating. Reference real services, real prices, real hours when the customer's question touches them.
+- If the customer asks about something not in the profile, ask ONE specific question instead of guessing.
+
+GOAL-DRIVEN GENERATION (the selected goal shapes the reply)
+- Close sale: build value, reduce hesitation, propose concrete next step.
+- Appointment booking: offer 1–2 specific time options, ask for confirmation.
+- Complaint: empathy first, ownership, concrete fix, no defensiveness.
+- Follow-up: re-open the conversation naturally, reference prior context, light CTA.
+- Inquiry: answer the actual question first, then invite next step.
+
+OBJECTION HANDLING (use real sales psychology, not generic acknowledgement)
+- Detect objection type: price, trust, timing, competitor, need, budget, decision_maker, none.
+- Apply ONE technique per reply, named explicitly in objection_analysis.strategy:
+  * Value-Based Selling — reframe price vs. outcome/ROI
+  * Social Proof — reference real customer behaviour ("معظم عملائنا...", "most of our clients...")
+  * Risk Reversal — guarantee, trial, return policy
+  * Anchoring — compare against higher-priced alternative or full value
+  * Scarcity / Urgency — only when honestly true
+  * Confidence Building — calm certainty about quality/results
+  * Decision-Maker Bridge — make it easy to involve spouse/partner/boss
+- coaching_tip: ONE actionable sentence to the business owner about how to handle this objection next time.
 
 LENGTH & FORMAT
-- WhatsApp / Messenger / Instagram: 2–4 short sentences. Email: up to 5 sentences. End with ONE practical next step.
+- WhatsApp / Instagram / Messenger / chat: 2–4 short sentences, end with ONE practical next step.
+- Email: up to 5 sentences, slightly more structured, still human.
 
-OBJECTION HANDLING (objection_analysis must be returned)
-Detect one of: price, trust, timing, competitor, need, budget, decision_maker, or none.
-For non-"none" objections, fill objection_analysis with:
-- type (one of the above)
-- strategy: short label of the sales strategy used (e.g. "Value-Based Selling", "Risk Reversal", "Social Proof", "Anchoring", "Decision-Maker Bridge", "Urgency Framing")
-- coaching_tip: ONE actionable sentence directed at the business owner explaining what to do next time / how to handle this objection.
+THE 3 REPLY STYLES (all answer the same customer message, but with different energy)
+- soft: empathetic, low pressure, warm. Best for hesitant or emotional customers.
+- persuasive: confident, value-focused, gentle push toward action. NOT pushy.
+- directClosing: warm but action-oriented, names the exact next step (book a time, confirm order, send address).
 
-REPLY STRUCTURE for objections: EMPATHY → VALUE REFRAME → REDUCE HESITATION → SOFT CTA.
-COMPLAINTS: Apology/understanding → Reassurance → Concrete next action → Warm tone.
-INQUIRIES/REQUESTS/GREETINGS: Answer specifically; ask ONE focused clarifying question if needed.
+CLASSIFICATION FIELDS
+- messageType: objection | inquiry | complaint | followUp | greeting | request | comparison | negotiation
+- objectionType: price | hesitation | comparison | discount | trust | timing | none
+- customerIntent: ONE short sentence in the INTERFACE language describing what the customer actually wants.
+- detectedLanguage: "ar" or "en".
+- detectedDialect: "egyptian" | "gulf" | "levantine" | "formal_msa" | "english" | "other".
+- detectedEmotion: angry | confused | interested | curious | excited | disappointed | skeptical | neutral.
 
-THE 3 REPLY STYLES (return all three, each addressing the same message but with different energy):
-- soft: empathetic, low pressure.
-- persuasive: value-focused, confident but not pushy.
-- directClosing: warm but action-oriented, concrete next step.
+INTERNAL SELF-REVIEW (silent — do NOT output the review, only the final replies)
+Before returning, mentally check each reply against this checklist:
+  1. Does it sound like a real person? (no AI giveaways, no banned openers, no robotic phrasing)
+  2. Does it match the customer's language AND dialect exactly?
+  3. Does it use real business-profile facts where relevant?
+  4. Does it advance the selected goal?
+  5. Does it address the actual concern, not a generic version of it?
+If any answer is "no", REWRITE the reply before returning. Output only the polished final version.
 
-FOLLOW-UP: A SHORT note for the BUSINESS OWNER (not customer-facing), specific to this conversation, one sentence in the interface language.`;
+OUTPUT
+Return ONLY the JSON object matching the schema. No markdown, no commentary, no labels.`;
 
-    const userPrompt = `TASK: Analyze the customer message and generate 3 reply options + objection analysis.
-
-INPUTS:
-- Platform: ${platform || "General"}
+    const userPrompt = `INPUTS
+- Platform: ${platform || "chat"}
 - Business Type: ${businessType || (bp?.business_type ?? "General business")}
-- Reply Goal: ${replyGoal || "Help the customer"}
+- Reply Goal: ${replyGoal || "Help the customer move forward"}
 - Desired Tone: ${tone || bp?.preferred_tone || "Professional"}
-- Interface Language: ${language || "en"}
+- Interface Language (for followUp/customerIntent only): ${language || "en"}
 ${businessContext}
 
-CUSTOMER MESSAGE:
-"${customerMessage}"
+CUSTOMER MESSAGE (reply in this language AND this dialect):
+"""
+${customerMessage}
+"""
 
-Return a JSON object matching the schema with classification, 3 reply options, leadTemperature, followUp, and objection_analysis.`;
+Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion), 3 replies (soft, persuasive, directClosing), leadTemperature, followUp (one short tip for the business owner in the interface language), and objection_analysis.`;
 
     const schema = {
       type: "object",
@@ -172,8 +200,11 @@ Return a JSON object matching the schema with classification, 3 reply options, l
             messageType: { type: "string", enum: ["objection", "inquiry", "complaint", "followUp", "greeting", "request", "comparison", "negotiation"] },
             customerIntent: { type: "string" },
             objectionType: { type: "string", enum: ["price", "hesitation", "comparison", "discount", "trust", "timing", "none"] },
+            detectedLanguage: { type: "string", enum: ["ar", "en"] },
+            detectedDialect: { type: "string", enum: ["egyptian", "gulf", "levantine", "formal_msa", "english", "other"] },
+            detectedEmotion: { type: "string", enum: ["angry", "confused", "interested", "curious", "excited", "disappointed", "skeptical", "neutral"] },
           },
-          required: ["messageType", "customerIntent", "objectionType"],
+          required: ["messageType", "customerIntent", "objectionType", "detectedLanguage", "detectedDialect", "detectedEmotion"],
         },
         replies: {
           type: "object",
@@ -208,6 +239,9 @@ Return a JSON object matching the schema with classification, 3 reply options, l
             { role: "system", content: systemPrompt },
             { role: "user", content: userPrompt },
           ],
+          // Slight creativity for natural human voice — too low reads robotic, too high invents facts.
+          temperature: 0.85,
+          top_p: 0.95,
           text: { format: { type: "json_schema", name: "generate_reply", strict: true, schema } },
         }),
       });
