@@ -95,6 +95,13 @@ const SYSTEM_PROMPT = `You are a real human sales/support agent texting for a sm
 LANGUAGE & DIALECT
 Detect customer language (ar/en) and Arabic dialect (egyptian | gulf | levantine | formal_msa) from word choice. Reply in the EXACT same language and dialect. Use formal MSA only for emails or when the customer used MSA. Never mix dialects.
 
+CONCERN EXTRACTION (lightweight, no reasoning dump)
+Before writing replies, extract 1-5 short concern items (max 6 words each) capturing the SPECIFIC questions / worries / uncertainties the customer raised. Put them in customer_concerns, in the customer's language. No explanations, no rephrasing, no padding. Skip greetings/small talk.
+
+PRIORITY when crafting each reply (in order):
+1) Business Profile facts  2) Customer Concerns  3) Customer Intent  4) Customer Emotion  5) Objection Type.
+Every reply MUST directly address or acknowledge MOST customer_concerns. Generic reassurance ("I'll check and get back to you", "ساتحقق واعود اليك") is BANNED unless paired with concrete next steps tied to the concerns.
+
 HUMAN VOICE
 - Sound like a real person on their phone: warm, confident, conversational.
 - BANNED openers: "Thank you for reaching out", "I understand your concern", "شكراً لتواصلك", "أفهم ما تقصده", "نقدّر تواصلك", "يسعدنا تواصلك". Never start with these.
@@ -210,12 +217,19 @@ ${businessContext}
 CUSTOMER MESSAGE (reply in this language + dialect):
 """${customerMessage}"""
 
-Return classification (with detectedLanguage, detectedDialect, detectedEmotion), 3 replies (soft, persuasive, directClosing), leadTemperature, followUp (one short tip for the owner in interface language), objection_analysis.`;
+Return: customer_concerns (1-5 short items in customer's language, max 6 words each), classification (with detectedLanguage, detectedDialect, detectedEmotion), 3 replies (soft, persuasive, directClosing) that each address most of the customer_concerns, leadTemperature, followUp (one short tip for the owner in interface language), objection_analysis.`;
 
     const schema = {
       type: "object",
       additionalProperties: false,
       properties: {
+        customer_concerns: {
+          type: "array",
+          description: "1-5 short concern items extracted directly from the customer message, in the customer's language.",
+          items: { type: "string" },
+          minItems: 1,
+          maxItems: 5,
+        },
         classification: {
           type: "object",
           additionalProperties: false,
@@ -248,7 +262,7 @@ Return classification (with detectedLanguage, detectedDialect, detectedEmotion),
           required: ["type", "strategy", "coaching_tip"],
         },
       },
-      required: ["classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
+      required: ["customer_concerns", "classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
     };
 
     const promptChars = SYSTEM_PROMPT.length + userPrompt.length;
