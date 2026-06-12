@@ -174,6 +174,19 @@ export default function BusinessProfilePage() {
         <Field label={L.faqs}><Textarea rows={4} value={form.faqs} onChange={(e) => set("faqs", e.target.value)} className="resize-none" /></Field>
       </Section>
 
+      <Section title={L.ai_instructions_section}>
+        <Field label={L.ai_instructions}>
+          <Textarea
+            rows={4}
+            value={form.ai_instructions}
+            onChange={(e) => set("ai_instructions", e.target.value)}
+            placeholder={L.ai_instructions_placeholder}
+            className="resize-none"
+            maxLength={1500}
+          />
+        </Field>
+      </Section>
+
       <Section title={L.notes}>
         <Field label={L.custom_notes}><Textarea rows={3} value={form.custom_notes} onChange={(e) => set("custom_notes", e.target.value)} className="resize-none" /></Field>
       </Section>
