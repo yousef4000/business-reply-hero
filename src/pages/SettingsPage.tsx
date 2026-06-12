@@ -75,29 +75,59 @@ export default function SettingsPage() {
       </Link>
 
       {/* Billing */}
-      <div className="rounded-xl border border-border bg-card p-4 space-y-3">
-        <div className="flex items-center gap-2">
-          <CreditCard className="h-4 w-4 text-primary" />
-          <h2 className="text-sm font-semibold">{t.settings.billing}</h2>
-        </div>
-        <div className="flex items-center justify-between gap-2">
-          <div className="min-w-0">
-            <p className="text-sm font-medium truncate">
-              {t.settings.currentPlan}: <span className="text-primary">{planLabel}</span>
-            </p>
-            <p className="text-xs text-muted-foreground">
-              {usage.loading
-                ? t.common.loading
-                : usage.planState === "trial"
-                  ? `${usage.used} ${t.settings.of} ${usage.limit} · ${trialLabel(daysLeft(usage.trialEndsAt), locale)}`
-                  : usage.planState === "trial_expired"
-                    ? (locale === "ar" ? "انتهت تجربتك المجانية" : "Trial ended")
-                    : `${usage.used} ${t.settings.of} ${usage.limit} ${t.settings.repliesUsed}`}
-            </p>
+      {(() => {
+        const isTrial = usage.planState === "trial";
+        const isExpired = usage.planState === "trial_expired";
+        const used = isTrial ? usage.trialUsed : usage.used;
+        const lim = isTrial ? usage.trialLimit : usage.limit;
+        const pct = lim > 0 ? Math.min(100, Math.round((used / lim) * 100)) : 0;
+        const days = daysLeft(usage.trialEndsAt);
+        const usageLine = isExpired
+          ? (locale === "ar" ? "انتهت تجربتك المجانية" : "Trial ended")
+          : `${used} ${t.settings.of} ${lim} ${locale === "ar" ? "رسالة" : "messages used"}`;
+        return (
+          <div className="rounded-xl border border-border bg-card p-4 space-y-3">
+            <div className="flex items-center gap-2">
+              <CreditCard className="h-4 w-4 text-primary" />
+              <h2 className="text-sm font-semibold">{t.settings.billing}</h2>
+            </div>
+
+            <div className="flex items-center justify-between gap-2">
+              <p className="text-sm font-medium truncate">
+                {t.settings.currentPlan}: <span className="text-primary">{planLabel}</span>
+              </p>
+              <Button variant={isExpired ? "default" : "outline"} size="sm" onClick={() => setUpgradePlan("pro")}>
+                {t.settings.upgrade}
+              </Button>
+            </div>
+
+            {usage.loading ? (
+              <p className="text-xs text-muted-foreground">{t.common.loading}</p>
+            ) : (
+              <div className="space-y-1.5">
+                {isTrial && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{locale === "ar" ? "متبقي" : "Time left"}</span>
+                    <span className="font-semibold">{trialLabel(days, locale)}</span>
+                  </div>
+                )}
+                <div className="flex items-center justify-between text-xs">
+                  <span className="text-muted-foreground">{locale === "ar" ? "الاستخدام" : "Usage"}</span>
+                  <span className="font-semibold">{usageLine}</span>
+                </div>
+                {!isExpired && (
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                    <div
+                      className={`h-full rounded-full transition-all ${pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-primary"}`}
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                )}
+              </div>
+            )}
           </div>
-          <Button variant="outline" size="sm" onClick={() => setUpgradePlan("pro")}>{t.settings.upgrade}</Button>
-        </div>
-      </div>
+        );
+      })()}
 
       {/* Account */}
       <div className="rounded-xl border border-border bg-card p-4 space-y-3">
