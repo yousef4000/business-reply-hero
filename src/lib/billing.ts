@@ -52,7 +52,7 @@ export async function getProducts(): Promise<
   const plugin = await loadPlugin();
   if (!plugin) return [];
   try {
-    const ids = Object.values(PLAY_PRODUCTS);
+    const ids = Object.values(PLAY_PRODUCTS).flatMap((p) => Object.values(p));
     const res = await plugin.getProducts?.({ productIdentifiers: ids });
     return res?.products ?? [];
   } catch (e) {
