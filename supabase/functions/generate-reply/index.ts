@@ -303,7 +303,14 @@ Return: customer_concerns (1-5 short items in customer's language, max 6 words e
     };
 
     const promptChars = SYSTEM_PROMPT.length + userPrompt.length;
-    console.log(`[gen ${reqId}] prompt_chars=${promptChars} bp=${bp ? "yes" : "no"} platform=${platform || "chat"}`);
+    console.log(`[gen ${reqId}] prompt_chars=${promptChars} bp=${bp ? "yes" : "no"} platform=${platform || "chat"} debug=${debugMode}`);
+    if (debugMode) {
+      console.log(`[gen ${reqId}] === DEBUG: USER INPUTS ===\n${JSON.stringify({ platform, businessType, replyGoal, tone, language }, null, 2)}`);
+      console.log(`[gen ${reqId}] === DEBUG: CUSTOMER MESSAGE ===\n${customerMessage}`);
+      console.log(`[gen ${reqId}] === DEBUG: BUSINESS CONTEXT ===\n${businessContext}`);
+      console.log(`[gen ${reqId}] === DEBUG: SYSTEM PROMPT ===\n${SYSTEM_PROMPT}`);
+      console.log(`[gen ${reqId}] === DEBUG: USER PROMPT (final) ===\n${userPrompt}`);
+    }
     mark("prompt_build", tBuild);
 
     const callOpenAI = async (model: string, timeoutMs: number) => {
