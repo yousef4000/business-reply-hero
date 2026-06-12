@@ -65,7 +65,6 @@ function buildBusinessContext(bp: any, msg: string): string {
     if (val && String(val).trim()) lines.push(`- ${label}: ${String(val).trim()}`);
   };
 
-  // Always-on identity (cheap, anchors persona)
   push("Business", `${bp.business_name || "—"} (${bp.business_type || "—"})`);
   if (bp.description && (all || topics.size <= 2)) push("About", bp.description);
 
@@ -81,6 +80,24 @@ function buildBusinessContext(bp: any, msg: string): string {
   if (bp.custom_notes && all) push("Notes", bp.custom_notes);
 
   let block = `BUSINESS FACTS (authoritative — never contradict, never invent):\n${lines.join("\n")}\nIf a needed fact is missing, ask ONE focused question.`;
+
+  // Customer Service Rules — ALWAYS injected when present (safety-critical, no topic gating).
+  const csrLines: string[] = [];
+  const pushCsr = (label: string, val: any) => {
+    if (val && String(val).trim()) csrLines.push(`▸ ${label}:\n${String(val).trim()}`);
+  };
+  pushCsr("VERIFIED FACTS (safe to state confidently)", bp.verified_facts);
+  pushCsr("NEVER ASSUME (forbidden assumptions — do NOT state these unless explicitly given above)", bp.never_assume);
+  pushCsr("PREFERRED PHRASES (favor these wordings)", bp.preferred_phrases);
+  pushCsr("FORBIDDEN PHRASES (never use these wordings)", bp.forbidden_phrases);
+  pushCsr("SENSITIVE CASES (handle with extra care)", bp.sensitive_cases);
+  pushCsr("COMMON SCENARIOS (recognize and respond accordingly)", bp.common_scenarios);
+  pushCsr("FREQUENT QUESTIONS (typical customer asks)", bp.frequent_questions);
+  pushCsr("ESCALATION RULES (when to escalate to a human/manager)", bp.escalation_rules);
+  pushCsr("COMPLAINT RULES (how to handle complaints)", bp.complaint_rules);
+  if (csrLines.length) {
+    block += `\n\nCUSTOMER SERVICE RULES (authoritative — apply in EVERY reply):\n${csrLines.join("\n\n")}`;
+  }
 
   if (bp.ai_instructions && String(bp.ai_instructions).trim()) {
     block += `\n\nOWNER INSTRUCTIONS (HIGHEST PRIORITY — follow exactly, override defaults if they conflict):\n${String(bp.ai_instructions).trim()}`;
