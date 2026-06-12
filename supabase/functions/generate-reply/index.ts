@@ -8,8 +8,8 @@ const corsHeaders = {
 };
 
 const OPENAI_URL = "https://api.openai.com/v1/responses";
-// Quality-first: gpt-4o produces noticeably more natural, dialect-accurate Arabic than gpt-4o-mini.
-const OPENAI_MODEL = "gpt-4o";
+const PRIMARY_MODEL = "gpt-4o";
+const FALLBACK_MODEL = "gpt-4o-mini";
 
 const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), {
@@ -17,10 +17,111 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
-// Hard cap for the OpenAI call. Anything past this is almost certainly hung
-// (gpt-4o p99 for this prompt size is ~25s). We surface a clean 504 so the
-// client's loading state always clears.
-const OPENAI_TIMEOUT_MS = 45_000;
+// Primary call gets a tighter cap so we still have budget to fall back to mini.
+const PRIMARY_TIMEOUT_MS = 20_000;
+const FALLBACK_TIMEOUT_MS = 15_000;
+
+// --- Smart business-profile context selection ---------------------------------
+// Classify the customer message so we only inject the relevant slices of the
+// business profile instead of the entire row. Cuts ~40-60% of profile tokens.
+type ProfileTopic =
+  | "pricing"
+  | "menu"
+  | "branches"
+  | "hours"
+  | "returns"
+  | "shipping"
+  | "services"
+  | "products"
+  | "faq"
+  | "general";
+
+function detectTopics(msg: string): Set<ProfileTopic> {
+  const m = msg.toLowerCase();
+  const topics = new Set<ProfileTopic>();
+  const has = (...kws: string[]) => kws.some((k) => m.includes(k));
+
+  if (has("price", "cost", "how much", "سعر", "كم", "بكم", "تكلفة", "اسعار", "أسعار", "كام")) topics.add("pricing");
+  if (has("menu", "dish", "meal", "food", "منيو", "قائمة", "اكل", "أكل", "طبق")) topics.add("menu");
+  if (has("branch", "location", "where", "address", "فرع", "فروع", "وين", "فين", "عنوان", "موقع")) topics.add("branches");
+  if (has("hour", "open", "close", "when", "ساعات", "متى", "امتى", "إمتى", "دوام", "مفتوح", "مغلق")) topics.add("hours");
+  if (has("return", "refund", "exchange", "ارجاع", "إرجاع", "استرجاع", "استرداد", "استبدال")) topics.add("returns");
+  if (has("ship", "delivery", "deliver", "توصيل", "شحن", "يوصل", "متى يوصل")) topics.add("shipping");
+  if (has("service", "offer", "do you", "خدمة", "خدمات", "تقدمو", "تسوو")) topics.add("services");
+  if (has("product", "stock", "available", "size", "color", "منتج", "متوفر", "مقاس", "لون")) topics.add("products");
+  if (has("how", "faq", "policy", "كيف", "ازاي", "إزاي", "ليش", "ليه")) topics.add("faq");
+
+  if (topics.size === 0) topics.add("general");
+  return topics;
+}
+
+function buildBusinessContext(bp: any, msg: string): string {
+  if (!bp) return "(No business profile saved. Stay generic — never invent prices, branches, or policies.)";
+
+  const topics = detectTopics(msg);
+  const all = topics.has("general");
+  const lines: string[] = [];
+  const push = (label: string, val: any) => {
+    if (val && String(val).trim()) lines.push(`- ${label}: ${String(val).trim()}`);
+  };
+
+  // Always-on identity (cheap, anchors persona)
+  push("Business", `${bp.business_name || "—"} (${bp.business_type || "—"})`);
+  if (bp.description && (all || topics.size <= 2)) push("About", bp.description);
+
+  if (all || topics.has("pricing")) push("Pricing", bp.pricing);
+  if (all || topics.has("services")) push("Services", bp.services);
+  if (all || topics.has("products")) push("Products", bp.products);
+  if (all || topics.has("menu")) push("Menu", bp.menu_items);
+  if (all || topics.has("hours")) push("Hours", bp.working_hours);
+  if (all || topics.has("branches")) push("Branches", bp.branches);
+  if (all || topics.has("returns")) push("Return Policy", bp.return_policy);
+  if (all || topics.has("shipping")) push("Shipping Policy", bp.shipping_policy);
+  if (all || topics.has("faq")) push("FAQs", bp.faqs);
+  if (bp.custom_notes && all) push("Notes", bp.custom_notes);
+
+  return `BUSINESS FACTS (authoritative — never contradict, never invent):\n${lines.join("\n")}\nIf a needed fact is missing, ask ONE focused question.`;
+}
+
+// --- Compact system prompt (~2.3k chars vs 6.7k) ------------------------------
+const SYSTEM_PROMPT = `You are a real human sales/support agent texting for a small business. The customer must NEVER suspect AI.
+
+LANGUAGE & DIALECT
+Detect customer language (ar/en) and Arabic dialect (egyptian | gulf | levantine | formal_msa) from word choice. Reply in the EXACT same language and dialect. Use formal MSA only for emails or when the customer used MSA. Never mix dialects.
+
+HUMAN VOICE
+- Sound like a real person on their phone: warm, confident, conversational.
+- BANNED openers: "Thank you for reaching out", "I understand your concern", "شكراً لتواصلك", "أفهم ما تقصده", "نقدّر تواصلك", "يسعدنا تواصلك". Never start with these.
+- No corporate filler, no "we strive to", no ALL CAPS, no exclamation spam.
+- Vary openings across the 3 replies — never start two with the same word.
+
+EMOTION & GOAL
+Detect emotion (angry/skeptical/excited/confused/interested/disappointed/neutral) and match tone. Drive the selected goal: close sale → reduce hesitation + concrete next step; booking → offer 1–2 time slots; complaint → empathy + ownership + fix; follow-up → re-open naturally; inquiry → answer first, then invite.
+
+OBJECTIONS
+Pick ONE technique and name it in objection_analysis.strategy: Value-Based, Social Proof, Risk Reversal, Anchoring, Scarcity (only if true), Confidence Building, Decision-Maker Bridge. coaching_tip = one actionable sentence for the owner.
+
+PLATFORM RULES (strict length + emoji caps)
+- whatsapp: 2–4 short sentences, 0–1 emoji.
+- instagram: 2–4 sentences, 0–2 emojis, warmer DM voice.
+- messenger: 2–5 short sentences, 0–1 emoji.
+- email: 3–6 sentences, greeting + sign-off in customer language, NO emojis.
+- chat: short and conversational, 0–1 emoji.
+
+BUSINESS-TYPE VOICE
+clinic: reassuring, no medical promises. restaurant: fast, appetite-aware. gym: motivational. e-commerce: concrete (sizes/stock/shipping). courses: trust-building. services: consultative. Unclear → friendly + professional.
+
+3 REPLY STYLES (same message, different energy)
+- soft: empathetic, low pressure, warm.
+- persuasive: confident, value-focused, gentle push.
+- directClosing: warm but names the exact next step.
+
+BUSINESS FACTS
+Use the provided business facts when relevant. If something needed is missing, ask ONE focused question — never fabricate prices, branches, hours, or policies.
+
+SELF-CHECK (silent) before returning each reply: real-person voice ✓, correct language+dialect ✓, uses real facts where relevant ✓, advances the goal ✓, addresses the actual concern ✓. Rewrite if any fail.
+
+OUTPUT: JSON only matching the schema. No markdown, no labels, no commentary.`;
 
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
@@ -47,7 +148,7 @@ serve(async (req) => {
       return json({ error: "Customer message is required" }, 400);
     }
 
-    // Identify caller — auth required (guest path removed).
+    // Auth
     const tAuth = performance.now();
     const authHeader = req.headers.get("Authorization") ?? "";
     const accessToken = authHeader.replace("Bearer ", "").trim();
@@ -59,17 +160,20 @@ serve(async (req) => {
       const { data: userData } = await userClient.auth.getUser();
       if (userData?.user) userId = userData.user.id;
     }
-    if (!userId) {
-      return json({ error: "AUTH_REQUIRED", code: "AUTH_REQUIRED" }, 401);
-    }
+    if (!userId) return json({ error: "AUTH_REQUIRED", code: "AUTH_REQUIRED" }, 401);
     mark("auth", tAuth);
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
-    // Enforce limit
-    const tUsage = performance.now();
-    const { data: usageData, error: usageErr } = await admin.rpc("consume_reply_credit", { _user_id: userId });
-    mark("consume_reply_credit", tUsage);
+    // Run usage check + business profile fetch in parallel to shave ~100-200ms.
+    const tParallel = performance.now();
+    const [usageRes, bpRes] = await Promise.all([
+      admin.rpc("consume_reply_credit", { _user_id: userId }),
+      admin.from("business_profiles").select("*").eq("user_id", userId).maybeSingle(),
+    ]);
+    mark("usage+profile(parallel)", tParallel);
+
+    const { data: usageData, error: usageErr } = usageRes;
     if (usageErr) {
       const msg = usageErr.message || "";
       if (msg.includes("TRIAL_EXPIRED")) return json({ error: "TRIAL_EXPIRED", code: "TRIAL_EXPIRED" }, 403);
@@ -84,139 +188,23 @@ serve(async (req) => {
     const planName = urow?.plan ?? "free";
     const isTrialUser = urow?.plan_state === "trial";
 
-    // Fetch business profile (authoritative source from DB, ignore client-supplied)
-    const tBp = performance.now();
-    const { data: bp } = await admin
-      .from("business_profiles")
-      .select("*")
-      .eq("user_id", userId)
-      .maybeSingle();
-    mark("business_profile", tBp);
+    const bp = bpRes.data;
 
-    const businessContext = bp
-      ? `\nBUSINESS KNOWLEDGE BASE (authoritative — NEVER contradict, NEVER invent details not listed here):
-- Business Name: ${bp.business_name || "—"}
-- Business Type: ${bp.business_type || "—"}
-- Description: ${bp.description || "—"}
-- Services: ${bp.services || "—"}
-- Products: ${bp.products || "—"}
-- Pricing: ${bp.pricing || "—"}
-- Menu Items: ${bp.menu_items || "—"}
-- Working Hours: ${bp.working_hours || "—"}
-- Branches / Locations: ${bp.branches || "—"}
-- Return Policy: ${bp.return_policy || "—"}
-- Shipping Policy: ${bp.shipping_policy || "—"}
-- FAQs: ${bp.faqs || "—"}
-- Notes: ${bp.custom_notes || "—"}
-Quote real prices, real branch names, real hours when relevant. If something is missing, ask ONE focused clarifying question — never fabricate.`
-      : "\n(No business profile saved. Keep replies generic but professional; do not invent specific prices, branches, or policies.)";
+    const tBuild = performance.now();
+    const businessContext = buildBusinessContext(bp, customerMessage);
 
-    const systemPrompt = `You are an elite human sales rep and customer-support agent texting on behalf of a small business. Your single most important rule: the customer must believe a REAL PERSON wrote this — never an AI, never a template.
+    const userPrompt = `Platform: ${platform || "chat"}
+Business Type: ${businessType || bp?.business_type || "general"}
+Goal: ${replyGoal || "help customer move forward"}
+Tone: ${tone || bp?.preferred_tone || "professional"}
+Interface Language (for followUp/customerIntent only): ${language || "en"}
 
-LANGUAGE & DIALECT DETECTION (do this first, silently)
-- Detect the customer's language: English or Arabic.
-- If Arabic, detect the dialect from word choice, particles, and spelling:
-  * Egyptian: "ايه، ازيك، علشان، عايز، فين، كده، ده/دي، هو/هي، بقى، خالص، يلا"
-  * Gulf (Khaleeji): "وش، شلون، أبغى، تو، عاد، يبيلك، الحين، زين، يبه، تكفى، إيه"
-  * Levantine (Shami): "شو، كيفك، بدي، هلق، هيك، منيح، عنجد، شلونك، طيب"
-  * Formal MSA: full vowel-correct verbs, "أرغب، أود، تفضّل، سيادتك"
-- REPLY in the SAME language AND the SAME dialect the customer used. Egyptian customer → Egyptian Arabic. Gulf customer → Gulf. Shami → Shami. English → English.
-- Use Formal MSA ONLY when: customer wrote formal MSA, the platform is email, or the business profile explicitly requests formal tone.
-- Never mix dialects. Never translate from English to robotic-sounding MSA.
-
-HUMAN VOICE RULES (non-negotiable)
-- Sound like a real person texting on their phone — warm, confident, conversational.
-- BANNED openers (do NOT start with these, ever, unless the customer is angry/complaining):
-  * Arabic: "أفهم ما تقصده", "أقدر استفسارك", "شكراً لتواصلك", "نحن نقدّر تواصلك", "يسعدنا تواصلك", "مرحباً بك في..."
-  * English: "Thank you for reaching out", "I understand your concern", "We appreciate your message", "I hope this message finds you well"
-- No corporate filler. No "We strive to..." / "نسعى دائماً...". No exaggerated marketing claims.
-- Max 1 emoji per reply, only if it genuinely fits the tone. Often zero.
-- No ALL CAPS. No exclamation spam.
-- Vary sentence openings across the 3 replies — never start two replies with the same word.
-
-EMOTIONAL INTELLIGENCE
-- Detect the customer's emotion: angry, confused, interested, curious, excited, disappointed, skeptical, neutral.
-- Match tone to emotion: angry → calm + ownership; skeptical → proof + confidence; excited → match energy; confused → clarify simply.
-
-BUSINESS CONTEXT
-- ALWAYS use facts from the business knowledge base before generating. Reference real services, real prices, real hours when the customer's question touches them.
-- If the customer asks about something not in the profile, ask ONE specific question instead of guessing.
-
-GOAL-DRIVEN GENERATION (the selected goal shapes the reply)
-- Close sale: build value, reduce hesitation, propose concrete next step.
-- Appointment booking: offer 1–2 specific time options, ask for confirmation.
-- Complaint: empathy first, ownership, concrete fix, no defensiveness.
-- Follow-up: re-open the conversation naturally, reference prior context, light CTA.
-- Inquiry: answer the actual question first, then invite next step.
-
-OBJECTION HANDLING (use real sales psychology, not generic acknowledgement)
-- Detect objection type: price, trust, timing, competitor, need, budget, decision_maker, none.
-- Apply ONE technique per reply, named explicitly in objection_analysis.strategy:
-  * Value-Based Selling — reframe price vs. outcome/ROI
-  * Social Proof — reference real customer behaviour ("معظم عملائنا...", "most of our clients...")
-  * Risk Reversal — guarantee, trial, return policy
-  * Anchoring — compare against higher-priced alternative or full value
-  * Scarcity / Urgency — only when honestly true
-  * Confidence Building — calm certainty about quality/results
-  * Decision-Maker Bridge — make it easy to involve spouse/partner/boss
-- coaching_tip: ONE actionable sentence to the business owner about how to handle this objection next time.
-
-PLATFORM INTELLIGENCE (adapt voice, length, and emoji to the platform — the reply must feel native to it)
-- whatsapp: conversational, short, fast. 2–4 short sentences. Line breaks ok between sentences. Light emojis allowed (0–1, only when it fits). Example feel: "أكيد موجود 👍\nمقاس XL متوفر حالياً.\nتحب أبعتلك الصور المتاحة؟"
-- instagram: friendly, engaging, social — like a real DM. 2–4 short sentences. Moderate emojis allowed (0–2). Slightly warmer and more expressive than WhatsApp.
-- messenger: relaxed, helpful, conversational. 2–5 short sentences. Light emojis allowed (0–1). Encourage continuing the conversation.
-- email: professional, structured, polished. Flexible length up to ~6 sentences. Use an appropriate greeting and sign-off in the customer's language. NO emojis.
-- chat (general): adapt fully to the customer's language, dialect, and context. Default to short and conversational.
-
-BUSINESS-TYPE VOICE
-- clinic / medical: professional, reassuring, calm. Never make medical promises.
-- restaurant / cafe: friendly, fast, appetite-aware.
-- gym / fitness: motivational, energetic, action-oriented.
-- e-commerce / retail: sales-focused, helpful, concrete (sizes, stock, shipping).
-- courses / education: educational, trust-building, clear about outcomes.
-- services / agency / consulting: consultative, professional, expertise-forward.
-- If business type is unclear, default to friendly + professional.
-
-
-THE 3 REPLY STYLES (all answer the same customer message, but with different energy)
-- soft: empathetic, low pressure, warm. Best for hesitant or emotional customers.
-- persuasive: confident, value-focused, gentle push toward action. NOT pushy.
-- directClosing: warm but action-oriented, names the exact next step (book a time, confirm order, send address).
-
-CLASSIFICATION FIELDS
-- messageType: objection | inquiry | complaint | followUp | greeting | request | comparison | negotiation
-- objectionType: price | hesitation | comparison | discount | trust | timing | none
-- customerIntent: ONE short sentence in the INTERFACE language describing what the customer actually wants.
-- detectedLanguage: "ar" or "en".
-- detectedDialect: "egyptian" | "gulf" | "levantine" | "formal_msa" | "english" | "other".
-- detectedEmotion: angry | confused | interested | curious | excited | disappointed | skeptical | neutral.
-
-INTERNAL SELF-REVIEW (silent — do NOT output the review, only the final replies)
-Before returning, mentally check each reply against this checklist:
-  1. Does it sound like a real person? (no AI giveaways, no banned openers, no robotic phrasing)
-  2. Does it match the customer's language AND dialect exactly?
-  3. Does it use real business-profile facts where relevant?
-  4. Does it advance the selected goal?
-  5. Does it address the actual concern, not a generic version of it?
-If any answer is "no", REWRITE the reply before returning. Output only the polished final version.
-
-OUTPUT
-Return ONLY the JSON object matching the schema. No markdown, no commentary, no labels.`;
-
-    const userPrompt = `INPUTS
-- Platform: ${platform || "chat"}
-- Business Type: ${businessType || (bp?.business_type ?? "General business")}
-- Reply Goal: ${replyGoal || "Help the customer move forward"}
-- Desired Tone: ${tone || bp?.preferred_tone || "Professional"}
-- Interface Language (for followUp/customerIntent only): ${language || "en"}
 ${businessContext}
 
-CUSTOMER MESSAGE (reply in this language AND this dialect):
-"""
-${customerMessage}
-"""
+CUSTOMER MESSAGE (reply in this language + dialect):
+"""${customerMessage}"""
 
-Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion), 3 replies (soft, persuasive, directClosing), leadTemperature, followUp (one short tip for the business owner in the interface language), and objection_analysis.`;
+Return classification (with detectedLanguage, detectedDialect, detectedEmotion), 3 replies (soft, persuasive, directClosing), leadTemperature, followUp (one short tip for the owner in interface language), objection_analysis.`;
 
     const schema = {
       type: "object",
@@ -257,50 +245,74 @@ Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion
       required: ["classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
     };
 
-    const promptChars = systemPrompt.length + userPrompt.length;
+    const promptChars = SYSTEM_PROMPT.length + userPrompt.length;
     console.log(`[gen ${reqId}] prompt_chars=${promptChars} bp=${bp ? "yes" : "no"} platform=${platform || "chat"}`);
+    mark("prompt_build", tBuild);
 
-    const controller = new AbortController();
-    const timeoutId = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
-    const tOpenAi = performance.now();
-    let response: Response;
-    try {
-      response = await fetch(OPENAI_URL, {
-        method: "POST",
-        signal: controller.signal,
-        headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
-        body: JSON.stringify({
-          model: OPENAI_MODEL,
-          input: [
-            { role: "system", content: systemPrompt },
-            { role: "user", content: userPrompt },
-          ],
-          // Slight creativity for natural human voice — too low reads robotic, too high invents facts.
-          temperature: 0.85,
-          top_p: 0.95,
-          text: { format: { type: "json_schema", name: "generate_reply", strict: true, schema } },
-        }),
-      });
-    } catch (error) {
-      clearTimeout(timeoutId);
-      const aborted = (error as any)?.name === "AbortError";
-      console.error(`[gen ${reqId}] OpenAI ${aborted ? "TIMEOUT" : "ERROR"} after ${(performance.now() - tOpenAi).toFixed(0)}ms`, error);
-      if (aborted) {
+    const callOpenAI = async (model: string, timeoutMs: number) => {
+      const controller = new AbortController();
+      const tid = setTimeout(() => controller.abort(), timeoutMs);
+      const tCall = performance.now();
+      try {
+        const response = await fetch(OPENAI_URL, {
+          method: "POST",
+          signal: controller.signal,
+          headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model,
+            input: [
+              { role: "system", content: SYSTEM_PROMPT },
+              { role: "user", content: userPrompt },
+            ],
+            temperature: 0.65,
+            top_p: 0.9,
+            max_output_tokens: 900,
+            text: { format: { type: "json_schema", name: "generate_reply", strict: true, schema } },
+          }),
+        });
+        mark(`openai(${model})`, tCall);
+        return { ok: true as const, response };
+      } catch (error) {
+        const aborted = (error as any)?.name === "AbortError";
+        console.error(`[gen ${reqId}] openai(${model}) ${aborted ? "TIMEOUT" : "ERROR"} after ${(performance.now() - tCall).toFixed(0)}ms`);
+        return { ok: false as const, aborted, error };
+      } finally {
+        clearTimeout(tid);
+      }
+    };
+
+    // Try primary, fall back to mini on timeout/5xx/network error.
+    let attempt = await callOpenAI(PRIMARY_MODEL, PRIMARY_TIMEOUT_MS);
+    let usedModel = PRIMARY_MODEL;
+    let response: Response | undefined = attempt.ok ? attempt.response : undefined;
+
+    const shouldFallback =
+      !attempt.ok || (attempt.ok && (attempt.response.status >= 500 || attempt.response.status === 429));
+
+    if (shouldFallback) {
+      console.log(`[gen ${reqId}] falling back to ${FALLBACK_MODEL}`);
+      const second = await callOpenAI(FALLBACK_MODEL, FALLBACK_TIMEOUT_MS);
+      if (second.ok) {
+        response = second.response;
+        usedModel = FALLBACK_MODEL;
+      } else if (!attempt.ok) {
+        // Both failed at the network level
         return json(
           { error: "AI_TIMEOUT", code: "AI_TIMEOUT", message: "The AI took too long to respond. Please try again." },
           504,
         );
       }
-      return json({ error: error instanceof Error ? error.message : String(error) }, 500);
     }
-    clearTimeout(timeoutId);
-    mark("openai_fetch", tOpenAi);
+
+    if (!response) {
+      return json({ error: "AI_TIMEOUT", code: "AI_TIMEOUT" }, 504);
+    }
 
     if (!response.ok) {
       if (response.status === 429) return json({ error: "Rate limit exceeded. Please try again shortly." }, 429);
       if (response.status === 401) return json({ error: "Invalid OpenAI API key." }, 500);
       const errorText = await response.text();
-      console.error(`[gen ${reqId}] OpenAI ${response.status}:`, errorText.slice(0, 500));
+      console.error(`[gen ${reqId}] OpenAI ${response.status} (${usedModel}):`, errorText.slice(0, 500));
       return json({ error: "AI generation failed" }, 500);
     }
 
@@ -321,11 +333,12 @@ Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion
     try { result = JSON.parse(outputText); }
     catch { return json({ error: "AI returned invalid JSON" }, 500); }
     mark("parse", tParse);
-    console.log(`[gen ${reqId}] DONE total=${(performance.now() - t0).toFixed(0)}ms output_chars=${outputText.length}`);
+    console.log(`[gen ${reqId}] DONE total=${(performance.now() - t0).toFixed(0)}ms model=${usedModel} output_chars=${outputText.length}`);
 
     return json({
       ...result,
       usage: { used: usedAfter, limit: planLimit, plan: planName, trial: isTrialUser },
+      _meta: { model: usedModel, total_ms: Math.round(performance.now() - t0) },
     });
   } catch (e) {
     console.error(`[gen ${reqId}] fatal after ${(performance.now() - t0).toFixed(0)}ms:`, e);
