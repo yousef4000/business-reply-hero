@@ -403,6 +403,17 @@ Return: customer_concerns (1-5 short items in customer's language, max 6 words e
       ...result,
       usage: { used: usedAfter, limit: planLimit, plan: planName, trial: isTrialUser },
       _meta: { model: usedModel, total_ms: Math.round(performance.now() - t0) },
+      ...(debugMode ? {
+        _debug: {
+          system_prompt: SYSTEM_PROMPT,
+          user_prompt: userPrompt,
+          business_context: businessContext,
+          user_inputs: { platform, businessType, replyGoal, tone, language },
+          customer_message: customerMessage,
+          prompt_chars: promptChars,
+          model_used: usedModel,
+        },
+      } : {}),
     });
   } catch (e) {
     console.error(`[gen ${reqId}] fatal after ${(performance.now() - t0).toFixed(0)}ms:`, e);
