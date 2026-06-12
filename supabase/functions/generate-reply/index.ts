@@ -454,6 +454,8 @@ Return JSON with: customer_questions (every explicit question the customer asked
 
     const tParse = performance.now();
     const data = await response.json();
+    const usageInfo = data?.usage ?? {};
+    console.log(`[gen ${reqId}] openai_usage input_tokens=${usageInfo.input_tokens ?? "?"} output_tokens=${usageInfo.output_tokens ?? "?"} total_tokens=${usageInfo.total_tokens ?? "?"}`);
     let outputText: string | undefined = data.output_text;
     if (!outputText && Array.isArray(data.output)) {
       for (const item of data.output) {
@@ -463,13 +465,17 @@ Return JSON with: customer_questions (every explicit question the customer asked
         if (outputText) break;
       }
     }
-    if (!outputText) return json({ error: "AI did not return structured output" }, 500);
+    if (!outputText) {
+      console.error(`[gen ${reqId}] no_output_text data_keys=${Object.keys(data).join(",")}`);
+      return json({ error: "AI did not return structured output" }, 500);
+    }
 
     let result;
     try { result = JSON.parse(outputText); }
     catch { return json({ error: "AI returned invalid JSON" }, 500); }
     mark("parse", tParse);
-    console.log(`[gen ${reqId}] DONE total=${(performance.now() - t0).toFixed(0)}ms model=${usedModel} output_chars=${outputText.length}`);
+    const totalMs = performance.now() - t0;
+    console.log(`[gen ${reqId}] DONE total=${totalMs.toFixed(0)}ms model=${usedModel} output_chars=${outputText.length} input_tokens=${usageInfo.input_tokens ?? "?"} output_tokens=${usageInfo.output_tokens ?? "?"}`);
 
     return json({
       ...result,
