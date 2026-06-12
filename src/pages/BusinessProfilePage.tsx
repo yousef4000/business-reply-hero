@@ -15,7 +15,7 @@ import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS } from "@/lib/templates";
 const FIELDS = [
   "business_name", "business_type", "description", "services", "products",
   "pricing", "menu_items", "working_hours", "branches",
-  "return_policy", "shipping_policy", "faqs", "custom_notes",
+  "return_policy", "shipping_policy", "faqs", "custom_notes", "ai_instructions",
 ] as const;
 
 type FieldKey = typeof FIELDS[number];
@@ -24,7 +24,7 @@ type ProfileForm = Record<FieldKey, string> & { preferred_tone: string };
 const empty: ProfileForm = {
   business_name: "", business_type: "", description: "", services: "", products: "",
   pricing: "", menu_items: "", working_hours: "", branches: "",
-  return_policy: "", shipping_policy: "", faqs: "", custom_notes: "",
+  return_policy: "", shipping_policy: "", faqs: "", custom_notes: "", ai_instructions: "",
   preferred_tone: "professional",
 };
 
@@ -174,6 +174,19 @@ export default function BusinessProfilePage() {
         <Field label={L.faqs}><Textarea rows={4} value={form.faqs} onChange={(e) => set("faqs", e.target.value)} className="resize-none" /></Field>
       </Section>
 
+      <Section title={L.ai_instructions_section}>
+        <Field label={L.ai_instructions}>
+          <Textarea
+            rows={4}
+            value={form.ai_instructions}
+            onChange={(e) => set("ai_instructions", e.target.value)}
+            placeholder={L.ai_instructions_placeholder}
+            className="resize-none"
+            maxLength={1500}
+          />
+        </Field>
+      </Section>
+
       <Section title={L.notes}>
         <Field label={L.custom_notes}><Textarea rows={3} value={form.custom_notes} onChange={(e) => set("custom_notes", e.target.value)} className="resize-none" /></Field>
       </Section>
@@ -230,6 +243,9 @@ const EN = {
   return_policy: "Return policy",
   shipping_policy: "Shipping policy",
   custom_notes: "Anything else the AI should know",
+  ai_instructions_section: "AI Instructions",
+  ai_instructions: "How should AI represent your business?",
+  ai_instructions_placeholder: "e.g. Be professional and friendly. Never promise unavailable services. Avoid medical advice. Keep WhatsApp replies short and reassuring.",
   save: "Save business profile",
   choose: "Choose",
 };
@@ -258,6 +274,9 @@ const AR: typeof EN = {
   return_policy: "سياسة الاسترجاع",
   shipping_policy: "سياسة الشحن",
   custom_notes: "أي معلومات إضافية للذكاء الاصطناعي",
+  ai_instructions_section: "تعليمات الذكاء الاصطناعي",
+  ai_instructions: "كيف تريد للذكاء الاصطناعي أن يمثل عملك؟",
+  ai_instructions_placeholder: "مثال: كن مهنياً وودوداً. لا تعد بخدمات غير متوفرة. تجنب النصائح الطبية. ردود واتساب قصيرة ومطمئنة.",
   save: "حفظ ملف العمل",
   choose: "اختر",
 };

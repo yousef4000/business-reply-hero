@@ -16,6 +16,7 @@ export type Database = {
     Tables: {
       business_profiles: {
         Row: {
+          ai_instructions: string | null
           branches: string | null
           business_name: string | null
           business_type: string | null
@@ -37,6 +38,7 @@ export type Database = {
           working_hours: string | null
         }
         Insert: {
+          ai_instructions?: string | null
           branches?: string | null
           business_name?: string | null
           business_type?: string | null
@@ -58,6 +60,7 @@ export type Database = {
           working_hours?: string | null
         }
         Update: {
+          ai_instructions?: string | null
           branches?: string | null
           business_name?: string | null
           business_type?: string | null

@@ -80,7 +80,13 @@ function buildBusinessContext(bp: any, msg: string): string {
   if (all || topics.has("faq")) push("FAQs", bp.faqs);
   if (bp.custom_notes && all) push("Notes", bp.custom_notes);
 
-  return `BUSINESS FACTS (authoritative — never contradict, never invent):\n${lines.join("\n")}\nIf a needed fact is missing, ask ONE focused question.`;
+  let block = `BUSINESS FACTS (authoritative — never contradict, never invent):\n${lines.join("\n")}\nIf a needed fact is missing, ask ONE focused question.`;
+
+  if (bp.ai_instructions && String(bp.ai_instructions).trim()) {
+    block += `\n\nOWNER INSTRUCTIONS (HIGHEST PRIORITY — follow exactly, override defaults if they conflict):\n${String(bp.ai_instructions).trim()}`;
+  }
+
+  return block;
 }
 
 // --- Compact system prompt (~2.3k chars vs 6.7k) ------------------------------
