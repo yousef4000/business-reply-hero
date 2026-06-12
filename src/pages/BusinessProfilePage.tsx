@@ -180,6 +180,38 @@ export default function BusinessProfilePage() {
         <Field label={L.faqs}><Textarea rows={4} value={form.faqs} onChange={(e) => set("faqs", e.target.value)} className="resize-none" /></Field>
       </Section>
 
+      <Section title={L.csr_section}>
+        <p className="text-xs text-muted-foreground -mt-1">{L.csr_help}</p>
+        <Field label={L.verified_facts}>
+          <Textarea rows={3} value={form.verified_facts} onChange={(e) => set("verified_facts", e.target.value)} placeholder={L.verified_facts_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.never_assume}>
+          <Textarea rows={3} value={form.never_assume} onChange={(e) => set("never_assume", e.target.value)} placeholder={L.never_assume_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.preferred_phrases}>
+          <Textarea rows={3} value={form.preferred_phrases} onChange={(e) => set("preferred_phrases", e.target.value)} placeholder={L.preferred_phrases_ph} className="resize-none" maxLength={1000} />
+        </Field>
+        <Field label={L.forbidden_phrases}>
+          <Textarea rows={3} value={form.forbidden_phrases} onChange={(e) => set("forbidden_phrases", e.target.value)} placeholder={L.forbidden_phrases_ph} className="resize-none" maxLength={1000} />
+        </Field>
+        <Field label={L.sensitive_cases}>
+          <Textarea rows={3} value={form.sensitive_cases} onChange={(e) => set("sensitive_cases", e.target.value)} placeholder={L.sensitive_cases_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.common_scenarios}>
+          <Textarea rows={3} value={form.common_scenarios} onChange={(e) => set("common_scenarios", e.target.value)} placeholder={L.common_scenarios_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.frequent_questions}>
+          <Textarea rows={3} value={form.frequent_questions} onChange={(e) => set("frequent_questions", e.target.value)} placeholder={L.frequent_questions_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.escalation_rules}>
+          <Textarea rows={2} value={form.escalation_rules} onChange={(e) => set("escalation_rules", e.target.value)} placeholder={L.escalation_rules_ph} className="resize-none" maxLength={1000} />
+        </Field>
+        <Field label={L.complaint_rules}>
+          <Textarea rows={2} value={form.complaint_rules} onChange={(e) => set("complaint_rules", e.target.value)} placeholder={L.complaint_rules_ph} className="resize-none" maxLength={1000} />
+        </Field>
+      </Section>
+
+
       <Section title={L.ai_instructions_section}>
         <Field label={L.ai_instructions}>
           <Textarea
