@@ -9,7 +9,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageContext";
-import { MessageCircle, Clock, ShoppingBag, RotateCcw, Loader2 } from "lucide-react";
+import { Clock, ShoppingBag, RotateCcw, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
 import {
   isBillingAvailable,
@@ -17,9 +17,6 @@ import {
   restorePurchases,
   type PaidPlan,
 } from "@/lib/billing";
-
-// Configurable WhatsApp support number (international format, no '+' or spaces)
-export const WHATSAPP_SUPPORT_NUMBER = "201000000000";
 
 export type PlanKey = "free" | "starter" | "pro" | "business";
 
@@ -42,67 +39,91 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
   const billingOn = isBillingAvailable();
   const isPaidPlan = plan !== "free";
 
-  const waMessage = isAr
-    ? `مرحبًا، أريد ترقية حسابي إلى خطة ${planName} في تطبيق ${t.app.name}.`
-    : `Hello, I'd like to upgrade my account to the ${planName} plan in ${t.app.name}.`;
-
-  const waUrl = `https://wa.me/${WHATSAPP_SUPPORT_NUMBER}?text=${encodeURIComponent(waMessage)}`;
-
-  const handleWhatsApp = () => {
-    window.open(waUrl, "_blank", "noopener,noreferrer");
-    onOpenChange(false);
+  // Friendly Arabic/English error messages keyed by purchase status / code.
+  const messageFor = (status: string, raw?: string) => {
+    const map: Record<string, { ar: string; en: string }> = {
+      success: { ar: "تم تفعيل خطتك بنجاح ✅", en: "Plan activated ✅" },
+      pending: {
+        ar: "تم استلام عملية الشراء، جاري التحقق من Google Play…",
+        en: "Purchase received, verifying with Google Play…",
+      },
+      cancelled: { ar: "تم إلغاء عملية الدفع.", en: "Payment cancelled." },
+      expired: {
+        ar: "انتهت صلاحية اشتراكك. يرجى التجديد عبر Google Play.",
+        en: "Your subscription expired. Please renew via Google Play.",
+      },
+      billing_unavailable: {
+        ar: "خدمة Google Play Billing غير متوفرة على هذا الجهاز.",
+        en: "Google Play Billing is not available on this device.",
+      },
+      network: {
+        ar: "تعذر الاتصال بـ Google Play. تحقق من الإنترنت وحاول مجددًا.",
+        en: "Could not reach Google Play. Check your connection and retry.",
+      },
+      failed: {
+        ar: "تعذر إتمام الدفع. حاول مرة أخرى أو تواصل مع الدعم.",
+        en: "Payment failed. Please try again or contact support.",
+      },
+    };
+    const m = map[status] ?? map.failed;
+    return isAr ? m.ar : m.en;
   };
 
   const handleBuy = async () => {
     if (!isPaidPlan) return;
+    if (!billingOn) {
+      toast(
+        isAr
+          ? "سيتم تفعيل الاشتراكات عبر Google Play قبل الإطلاق الرسمي."
+          : "Subscriptions will be enabled via Google Play before official launch.",
+      );
+      return;
+    }
     setBusy("buy");
     try {
-      const res = await purchasePlan(plan as PaidPlan);
+      const res = await purchasePlan(plan as PaidPlan, "monthly");
       switch (res.status) {
         case "success":
-          toast.success(isAr ? "تم تفعيل خطتك بنجاح ✅" : "Plan activated ✅");
+          toast.success(messageFor("success"));
           onOpenChange(false);
           break;
         case "pending":
-          toast(
-            isAr
-              ? "تم استلام عملية الشراء، جاري التحقق…"
-              : "Purchase received, verifying…",
-          );
+          toast(messageFor("pending"));
           onOpenChange(false);
           break;
         case "cancelled":
-          toast(isAr ? "تم إلغاء عملية الدفع." : "Payment cancelled.");
+          toast(messageFor("cancelled"));
           break;
         case "unsupported":
-          toast.error(
-            isAr
-              ? "الدفع متاح فقط داخل تطبيق Android."
-              : "Payment is available only inside the Android app.",
-          );
+          toast.error(messageFor("billing_unavailable"));
           break;
-        default:
-          toast.error(
-            isAr
-              ? "تعذر إتمام الدفع، حاول مرة أخرى."
-              : "Payment failed, please try again.",
-          );
+        default: {
+          const raw = (res as any)?.message ?? "";
+          const code = /network|timeout|offline/i.test(raw) ? "network" : "failed";
+          toast.error(messageFor(code, raw));
+        }
       }
+    } catch (e: any) {
+      toast.error(messageFor("failed", e?.message));
     } finally {
       setBusy(null);
     }
   };
 
   const handleRestore = async () => {
+    if (!billingOn) {
+      toast(
+        isAr
+          ? "الاستعادة متاحة فقط داخل تطبيق Android."
+          : "Restore is only available inside the Android app.",
+      );
+      return;
+    }
     setBusy("restore");
     try {
       const { restored, results } = await restorePurchases();
       if (results[0]?.status === "unsupported") {
-        toast.error(
-          isAr
-            ? "الاستعادة متاحة فقط على Android."
-            : "Restore is only available on Android.",
-        );
+        toast.error(messageFor("billing_unavailable"));
       } else if (restored > 0) {
         toast.success(
           isAr ? "تمت استعادة مشترياتك بنجاح." : "Purchases restored.",
@@ -128,7 +149,7 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
             {isAr ? "ترقية الخطة" : "Upgrade Plan"}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            {isAr ? "تفاصيل الخطة وطرق التفعيل" : "Plan details and activation"}
+            {isAr ? "تفاصيل الخطة وطرق التفعيل عبر Google Play" : "Plan details and Google Play activation"}
           </DialogDescription>
         </DialogHeader>
 
@@ -162,18 +183,21 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
         </div>
 
         {/* Notice */}
-        <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground leading-relaxed">
-          {billingOn
-            ? isAr
-              ? "الدفع آمن عبر Google Play. يمكنك إلغاء الاشتراك من إعدادات Google Play في أي وقت."
-              : "Secure payment via Google Play. You can cancel from Google Play settings anytime."
-            : isAr
-              ? "الدفع الإلكتروني متاح داخل تطبيق Android. حاليًا يمكنك التواصل عبر واتساب لتفعيل الخطة."
-              : "Online payment is available inside the Android app. For now, contact us via WhatsApp."}
+        <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground leading-relaxed flex gap-2">
+          <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
+          <span>
+            {billingOn
+              ? isAr
+                ? "اشترك مباشرة عبر Google Play واستمتع بجميع المميزات فوراً. يمكنك الإلغاء من إعدادات Google Play في أي وقت."
+                : "Subscribe directly via Google Play and unlock all features instantly. Cancel anytime from Google Play settings."
+              : isAr
+                ? "سيتم تفعيل الاشتراكات عبر Google Play قبل الإطلاق الرسمي."
+                : "Subscriptions will be enabled via Google Play before official launch."}
+          </span>
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
-          {billingOn && isPaidPlan && (
+          {isPaidPlan && (
             <Button
               onClick={handleBuy}
               disabled={busy !== null}
@@ -184,35 +208,23 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
               ) : (
                 <ShoppingBag className="h-4 w-4" />
               )}
-              {isAr ? "شراء عبر Google Play" : "Buy via Google Play"}
+              {isAr ? "اشترك الآن" : "Subscribe Now"}
             </Button>
           )}
 
-          {billingOn && (
-            <Button
-              variant="outline"
-              onClick={handleRestore}
-              disabled={busy !== null}
-              className="w-full gap-2"
-            >
-              {busy === "restore" ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <RotateCcw className="h-4 w-4" />
-              )}
-              {isAr ? "استعادة المشتريات" : "Restore purchases"}
-            </Button>
-          )}
-
-          {!billingOn && (
-            <Button
-              onClick={handleWhatsApp}
-              className="w-full gap-2 bg-[#25D366] hover:bg-[#1ebe57] text-white"
-            >
-              <MessageCircle className="h-4 w-4" />
-              {isAr ? "تواصل عبر واتساب للتفعيل" : "Contact via WhatsApp"}
-            </Button>
-          )}
+          <Button
+            variant="outline"
+            onClick={handleRestore}
+            disabled={busy !== null}
+            className="w-full gap-2"
+          >
+            {busy === "restore" ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : (
+              <RotateCcw className="h-4 w-4" />
+            )}
+            {isAr ? "استعادة المشتريات" : "Restore purchases"}
+          </Button>
 
           <Button
             variant="ghost"
