@@ -217,7 +217,7 @@ serve(async (req) => {
     }
 
     const body = await req.json();
-    const { platform, businessType, replyGoal, tone, customerMessage, language, debug } = body ?? {};
+    const { platform, businessType, replyGoal, tone, customerMessage, language, debug, operationalContext } = body ?? {};
     const debugMode = debug === true || req.headers.get("x-debug") === "1";
 
     if (!customerMessage?.trim()) {
