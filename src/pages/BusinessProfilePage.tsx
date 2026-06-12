@@ -243,6 +243,9 @@ const EN = {
   return_policy: "Return policy",
   shipping_policy: "Shipping policy",
   custom_notes: "Anything else the AI should know",
+  ai_instructions_section: "AI Instructions",
+  ai_instructions: "How should AI represent your business?",
+  ai_instructions_placeholder: "e.g. Be professional and friendly. Never promise unavailable services. Avoid medical advice. Keep WhatsApp replies short and reassuring.",
   save: "Save business profile",
   choose: "Choose",
 };
