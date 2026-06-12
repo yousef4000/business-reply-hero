@@ -129,6 +129,19 @@ export default function GeneratePage() {
     setLimitReached(false);
     setResult(null);
 
+    // Client-side safety timeout — must exceed edge function timeout (45s) but
+    // still finite so the spinner can never get stuck forever.
+    const clientTimeoutMs = 60_000;
+    const abortTimer = setTimeout(() => {
+      console.warn("[generate] client timeout reached, clearing loading state");
+      setIsGenerating(false);
+      setError(
+        locale === "ar"
+          ? "استغرق توليد الرد وقتاً أطول من المتوقع. حاول مرة أخرى."
+          : "Generation took longer than expected. Please try again.",
+      );
+    }, clientTimeoutMs);
+
     try {
       const { data, error: fnError } = await supabase.functions.invoke("generate-reply", {
         body: {
@@ -158,6 +171,14 @@ export default function GeneratePage() {
         usage.refresh();
         return;
       }
+      if (code === "AI_TIMEOUT") {
+        setError(
+          locale === "ar"
+            ? "استغرق الذكاء الاصطناعي وقتاً طويلاً. حاول مرة أخرى."
+            : "The AI took too long to respond. Please try again.",
+        );
+        return;
+      }
 
       if (fnError) throw new Error(fnError.message || "Generation failed");
       if (data?.error) throw new Error(data.error);
@@ -170,6 +191,7 @@ export default function GeneratePage() {
       setError(err.message || "Something went wrong");
       toast({ title: t.common.error, variant: "destructive" });
     } finally {
+      clearTimeout(abortTimer);
       setIsGenerating(false);
     }
   };

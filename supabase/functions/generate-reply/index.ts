@@ -17,8 +17,18 @@ const json = (body: unknown, status = 200) =>
     headers: { ...corsHeaders, "Content-Type": "application/json" },
   });
 
+// Hard cap for the OpenAI call. Anything past this is almost certainly hung
+// (gpt-4o p99 for this prompt size is ~25s). We surface a clean 504 so the
+// client's loading state always clears.
+const OPENAI_TIMEOUT_MS = 45_000;
+
 serve(async (req) => {
   if (req.method === "OPTIONS") return new Response(null, { headers: corsHeaders });
+
+  const reqId = crypto.randomUUID().slice(0, 8);
+  const t0 = performance.now();
+  const mark = (label: string, start: number) =>
+    console.log(`[gen ${reqId}] ${label}: ${(performance.now() - start).toFixed(0)}ms`);
 
   try {
     const OPENAI_API_KEY = Deno.env.get("OPENAI_API_KEY");
@@ -38,6 +48,7 @@ serve(async (req) => {
     }
 
     // Identify caller — auth required (guest path removed).
+    const tAuth = performance.now();
     const authHeader = req.headers.get("Authorization") ?? "";
     const accessToken = authHeader.replace("Bearer ", "").trim();
     let userId: string | null = null;
@@ -51,11 +62,14 @@ serve(async (req) => {
     if (!userId) {
       return json({ error: "AUTH_REQUIRED", code: "AUTH_REQUIRED" }, 401);
     }
+    mark("auth", tAuth);
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
 
     // Enforce limit
+    const tUsage = performance.now();
     const { data: usageData, error: usageErr } = await admin.rpc("consume_reply_credit", { _user_id: userId });
+    mark("consume_reply_credit", tUsage);
     if (usageErr) {
       const msg = usageErr.message || "";
       if (msg.includes("TRIAL_EXPIRED")) return json({ error: "TRIAL_EXPIRED", code: "TRIAL_EXPIRED" }, 403);
@@ -71,11 +85,13 @@ serve(async (req) => {
     const isTrialUser = urow?.plan_state === "trial";
 
     // Fetch business profile (authoritative source from DB, ignore client-supplied)
+    const tBp = performance.now();
     const { data: bp } = await admin
       .from("business_profiles")
       .select("*")
       .eq("user_id", userId)
       .maybeSingle();
+    mark("business_profile", tBp);
 
     const businessContext = bp
       ? `\nBUSINESS KNOWLEDGE BASE (authoritative — NEVER contradict, NEVER invent details not listed here):
@@ -241,10 +257,17 @@ Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion
       required: ["classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
     };
 
+    const promptChars = systemPrompt.length + userPrompt.length;
+    console.log(`[gen ${reqId}] prompt_chars=${promptChars} bp=${bp ? "yes" : "no"} platform=${platform || "chat"}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+    const tOpenAi = performance.now();
     let response: Response;
     try {
       response = await fetch(OPENAI_URL, {
         method: "POST",
+        signal: controller.signal,
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: OPENAI_MODEL,
@@ -259,18 +282,29 @@ Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion
         }),
       });
     } catch (error) {
-      console.error("OpenAI Error:", error);
+      clearTimeout(timeoutId);
+      const aborted = (error as any)?.name === "AbortError";
+      console.error(`[gen ${reqId}] OpenAI ${aborted ? "TIMEOUT" : "ERROR"} after ${(performance.now() - tOpenAi).toFixed(0)}ms`, error);
+      if (aborted) {
+        return json(
+          { error: "AI_TIMEOUT", code: "AI_TIMEOUT", message: "The AI took too long to respond. Please try again." },
+          504,
+        );
+      }
       return json({ error: error instanceof Error ? error.message : String(error) }, 500);
     }
+    clearTimeout(timeoutId);
+    mark("openai_fetch", tOpenAi);
 
     if (!response.ok) {
       if (response.status === 429) return json({ error: "Rate limit exceeded. Please try again shortly." }, 429);
       if (response.status === 401) return json({ error: "Invalid OpenAI API key." }, 500);
       const errorText = await response.text();
-      console.error("OpenAI error:", response.status, errorText);
+      console.error(`[gen ${reqId}] OpenAI ${response.status}:`, errorText.slice(0, 500));
       return json({ error: "AI generation failed" }, 500);
     }
 
+    const tParse = performance.now();
     const data = await response.json();
     let outputText: string | undefined = data.output_text;
     if (!outputText && Array.isArray(data.output)) {
@@ -286,13 +320,15 @@ Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion
     let result;
     try { result = JSON.parse(outputText); }
     catch { return json({ error: "AI returned invalid JSON" }, 500); }
+    mark("parse", tParse);
+    console.log(`[gen ${reqId}] DONE total=${(performance.now() - t0).toFixed(0)}ms output_chars=${outputText.length}`);
 
     return json({
       ...result,
       usage: { used: usedAfter, limit: planLimit, plan: planName, trial: isTrialUser },
     });
   } catch (e) {
-    console.error("generate-reply error:", e);
+    console.error(`[gen ${reqId}] fatal after ${(performance.now() - t0).toFixed(0)}ms:`, e);
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });
