@@ -15,7 +15,7 @@ import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS } from "@/lib/templates";
 const FIELDS = [
   "business_name", "business_type", "description", "services", "products",
   "pricing", "menu_items", "working_hours", "branches",
-  "return_policy", "shipping_policy", "faqs", "custom_notes",
+  "return_policy", "shipping_policy", "faqs", "custom_notes", "ai_instructions",
 ] as const;
 
 type FieldKey = typeof FIELDS[number];
@@ -24,7 +24,7 @@ type ProfileForm = Record<FieldKey, string> & { preferred_tone: string };
 const empty: ProfileForm = {
   business_name: "", business_type: "", description: "", services: "", products: "",
   pricing: "", menu_items: "", working_hours: "", branches: "",
-  return_policy: "", shipping_policy: "", faqs: "", custom_notes: "",
+  return_policy: "", shipping_policy: "", faqs: "", custom_notes: "", ai_instructions: "",
   preferred_tone: "professional",
 };
 
