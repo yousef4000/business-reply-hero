@@ -85,11 +85,13 @@ serve(async (req) => {
     const isTrialUser = urow?.plan_state === "trial";
 
     // Fetch business profile (authoritative source from DB, ignore client-supplied)
+    const tBp = performance.now();
     const { data: bp } = await admin
       .from("business_profiles")
       .select("*")
       .eq("user_id", userId)
       .maybeSingle();
+    mark("business_profile", tBp);
 
     const businessContext = bp
       ? `\nBUSINESS KNOWLEDGE BASE (authoritative — NEVER contradict, NEVER invent details not listed here):
