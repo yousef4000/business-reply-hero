@@ -16,6 +16,9 @@ const FIELDS = [
   "business_name", "business_type", "description", "services", "products",
   "pricing", "menu_items", "working_hours", "branches",
   "return_policy", "shipping_policy", "faqs", "custom_notes", "ai_instructions",
+  "verified_facts", "never_assume", "preferred_phrases", "forbidden_phrases",
+  "sensitive_cases", "common_scenarios", "frequent_questions",
+  "escalation_rules", "complaint_rules",
 ] as const;
 
 type FieldKey = typeof FIELDS[number];
@@ -25,6 +28,9 @@ const empty: ProfileForm = {
   business_name: "", business_type: "", description: "", services: "", products: "",
   pricing: "", menu_items: "", working_hours: "", branches: "",
   return_policy: "", shipping_policy: "", faqs: "", custom_notes: "", ai_instructions: "",
+  verified_facts: "", never_assume: "", preferred_phrases: "", forbidden_phrases: "",
+  sensitive_cases: "", common_scenarios: "", frequent_questions: "",
+  escalation_rules: "", complaint_rules: "",
   preferred_tone: "professional",
 };
 
