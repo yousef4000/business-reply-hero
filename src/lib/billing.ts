@@ -75,11 +75,14 @@ async function verifyOnBackend(
   return data as { ok: boolean; status: string; plan?: PaidPlan };
 }
 
-export async function purchasePlan(plan: PaidPlan): Promise<PurchaseResult> {
+export async function purchasePlan(
+  plan: PaidPlan,
+  period: BillingPeriod = "monthly",
+): Promise<PurchaseResult> {
   const plugin = await loadPlugin();
   if (!plugin) return { status: "unsupported" };
 
-  const productId = PLAY_PRODUCTS[plan];
+  const productId = productIdFor(plan, period);
   try {
     const res = await plugin.purchaseProduct?.({ productIdentifier: productId });
     // Plugin shapes vary — try common fields
