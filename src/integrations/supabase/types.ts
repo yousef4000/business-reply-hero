@@ -20,21 +20,30 @@ export type Database = {
           branches: string | null
           business_name: string | null
           business_type: string | null
+          common_scenarios: string | null
+          complaint_rules: string | null
           created_at: string
           custom_notes: string | null
           description: string | null
+          escalation_rules: string | null
           faqs: string | null
+          forbidden_phrases: string | null
+          frequent_questions: string | null
           id: string
           language: string | null
           menu_items: string | null
+          never_assume: string | null
+          preferred_phrases: string | null
           preferred_tone: string | null
           pricing: string | null
           products: string | null
           return_policy: string | null
+          sensitive_cases: string | null
           services: string | null
           shipping_policy: string | null
           updated_at: string
           user_id: string
+          verified_facts: string | null
           working_hours: string | null
         }
         Insert: {
@@ -42,21 +51,30 @@ export type Database = {
           branches?: string | null
           business_name?: string | null
           business_type?: string | null
+          common_scenarios?: string | null
+          complaint_rules?: string | null
           created_at?: string
           custom_notes?: string | null
           description?: string | null
+          escalation_rules?: string | null
           faqs?: string | null
+          forbidden_phrases?: string | null
+          frequent_questions?: string | null
           id?: string
           language?: string | null
           menu_items?: string | null
+          never_assume?: string | null
+          preferred_phrases?: string | null
           preferred_tone?: string | null
           pricing?: string | null
           products?: string | null
           return_policy?: string | null
+          sensitive_cases?: string | null
           services?: string | null
           shipping_policy?: string | null
           updated_at?: string
           user_id: string
+          verified_facts?: string | null
           working_hours?: string | null
         }
         Update: {
@@ -64,21 +82,30 @@ export type Database = {
           branches?: string | null
           business_name?: string | null
           business_type?: string | null
+          common_scenarios?: string | null
+          complaint_rules?: string | null
           created_at?: string
           custom_notes?: string | null
           description?: string | null
+          escalation_rules?: string | null
           faqs?: string | null
+          forbidden_phrases?: string | null
+          frequent_questions?: string | null
           id?: string
           language?: string | null
           menu_items?: string | null
+          never_assume?: string | null
+          preferred_phrases?: string | null
           preferred_tone?: string | null
           pricing?: string | null
           products?: string | null
           return_policy?: string | null
+          sensitive_cases?: string | null
           services?: string | null
           shipping_policy?: string | null
           updated_at?: string
           user_id?: string
+          verified_facts?: string | null
           working_hours?: string | null
         }
         Relationships: []
