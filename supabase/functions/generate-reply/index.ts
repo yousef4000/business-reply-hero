@@ -223,6 +223,13 @@ Return: customer_concerns (1-5 short items in customer's language, max 6 words e
       type: "object",
       additionalProperties: false,
       properties: {
+        customer_concerns: {
+          type: "array",
+          description: "1-5 short concern items extracted directly from the customer message, in the customer's language.",
+          items: { type: "string" },
+          minItems: 1,
+          maxItems: 5,
+        },
         classification: {
           type: "object",
           additionalProperties: false,
