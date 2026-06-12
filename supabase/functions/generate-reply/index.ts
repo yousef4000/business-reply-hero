@@ -257,10 +257,17 @@ Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion
       required: ["classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
     };
 
+    const promptChars = systemPrompt.length + userPrompt.length;
+    console.log(`[gen ${reqId}] prompt_chars=${promptChars} bp=${bp ? "yes" : "no"} platform=${platform || "chat"}`);
+
+    const controller = new AbortController();
+    const timeoutId = setTimeout(() => controller.abort(), OPENAI_TIMEOUT_MS);
+    const tOpenAi = performance.now();
     let response: Response;
     try {
       response = await fetch(OPENAI_URL, {
         method: "POST",
+        signal: controller.signal,
         headers: { Authorization: `Bearer ${OPENAI_API_KEY}`, "Content-Type": "application/json" },
         body: JSON.stringify({
           model: OPENAI_MODEL,
@@ -275,18 +282,29 @@ Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion
         }),
       });
     } catch (error) {
-      console.error("OpenAI Error:", error);
+      clearTimeout(timeoutId);
+      const aborted = (error as any)?.name === "AbortError";
+      console.error(`[gen ${reqId}] OpenAI ${aborted ? "TIMEOUT" : "ERROR"} after ${(performance.now() - tOpenAi).toFixed(0)}ms`, error);
+      if (aborted) {
+        return json(
+          { error: "AI_TIMEOUT", code: "AI_TIMEOUT", message: "The AI took too long to respond. Please try again." },
+          504,
+        );
+      }
       return json({ error: error instanceof Error ? error.message : String(error) }, 500);
     }
+    clearTimeout(timeoutId);
+    mark("openai_fetch", tOpenAi);
 
     if (!response.ok) {
       if (response.status === 429) return json({ error: "Rate limit exceeded. Please try again shortly." }, 429);
       if (response.status === 401) return json({ error: "Invalid OpenAI API key." }, 500);
       const errorText = await response.text();
-      console.error("OpenAI error:", response.status, errorText);
+      console.error(`[gen ${reqId}] OpenAI ${response.status}:`, errorText.slice(0, 500));
       return json({ error: "AI generation failed" }, 500);
     }
 
+    const tParse = performance.now();
     const data = await response.json();
     let outputText: string | undefined = data.output_text;
     if (!outputText && Array.isArray(data.output)) {
@@ -302,13 +320,15 @@ Produce: classification (with detectedLanguage, detectedDialect, detectedEmotion
     let result;
     try { result = JSON.parse(outputText); }
     catch { return json({ error: "AI returned invalid JSON" }, 500); }
+    mark("parse", tParse);
+    console.log(`[gen ${reqId}] DONE total=${(performance.now() - t0).toFixed(0)}ms output_chars=${outputText.length}`);
 
     return json({
       ...result,
       usage: { used: usedAfter, limit: planLimit, plan: planName, trial: isTrialUser },
     });
   } catch (e) {
-    console.error("generate-reply error:", e);
+    console.error(`[gen ${reqId}] fatal after ${(performance.now() - t0).toFixed(0)}ms:`, e);
     return json({ error: e instanceof Error ? e.message : "Unknown error" }, 500);
   }
 });
