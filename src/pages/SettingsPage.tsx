@@ -27,11 +27,13 @@ export default function SettingsPage() {
     navigate("/");
   };
 
-  const planLabel = usage.planState === "trial"
-    ? (locale === "ar" ? "تجربة مجانية" : "Free trial")
-    : usage.planState === "trial_expired"
-      ? (locale === "ar" ? "انتهت التجربة" : "Trial ended")
-      : t.plans[usage.plan as "free" | "starter" | "pro" | "business"] ?? usage.plan;
+  const planLabel = usage.isGuest
+    ? (locale === "ar" ? "زائر" : "Guest")
+    : usage.planState === "trial"
+      ? (locale === "ar" ? "تجربة مجانية" : "Free Trial")
+      : usage.planState === "trial_expired"
+        ? (locale === "ar" ? "انتهت التجربة" : "Trial Ended")
+        : t.plans[usage.plan as "free" | "starter" | "pro" | "business"] ?? usage.plan;
 
   return (
     <div className="mobile-container space-y-6 animate-slide-up pb-8">
@@ -107,16 +109,22 @@ export default function SettingsPage() {
               <div className="space-y-1.5">
                 {isTrial && (
                   <div className="flex items-center justify-between text-xs">
-                    <span className="text-muted-foreground">{locale === "ar" ? "متبقي" : "Time left"}</span>
+                    <span className="text-muted-foreground">{locale === "ar" ? "الأيام المتبقية" : "Days remaining"}</span>
                     <span className="font-semibold">{trialLabel(days, locale)}</span>
                   </div>
                 )}
                 <div className="flex items-center justify-between text-xs">
-                  <span className="text-muted-foreground">{locale === "ar" ? "الاستخدام" : "Usage"}</span>
+                  <span className="text-muted-foreground">{locale === "ar" ? "الرسائل المستخدمة" : "Messages used"}</span>
                   <span className="font-semibold">{usageLine}</span>
                 </div>
-                {!isExpired && (
-                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
+                {!isExpired && lim > 0 && (
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-muted-foreground">{locale === "ar" ? "المتبقي" : "Remaining"}</span>
+                    <span className="font-semibold">{Math.max(0, lim - used)} {locale === "ar" ? "رسالة" : "messages"}</span>
+                  </div>
+                )}
+                {!isExpired && lim > 0 && (
+                  <div className="h-2 w-full rounded-full bg-muted overflow-hidden mt-1" role="progressbar" aria-valuenow={pct} aria-valuemin={0} aria-valuemax={100}>
                     <div
                       className={`h-full rounded-full transition-all ${pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-primary"}`}
                       style={{ width: `${pct}%` }}
