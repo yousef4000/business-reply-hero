@@ -1,9 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "@/integrations/supabase/client";
 
-const GUEST_KEY = "smartreply-guest-usage";
-export const GUEST_LIMIT = 3;
-
 export type PlanName = "free" | "starter" | "pro" | "business" | "guest";
 export type PlanState = "trial" | "trial_expired" | "paid" | "guest";
 
@@ -19,22 +16,12 @@ export interface UsageStatus {
   trialLimit: number;
 }
 
-export function getGuestUsage(): number {
-  try {
-    return Math.max(0, Number(localStorage.getItem(GUEST_KEY) ?? 0));
-  } catch {
-    return 0;
-  }
-}
-
-export function bumpGuestUsage(): number {
-  const next = getGuestUsage() + 1;
-  try { localStorage.setItem(GUEST_KEY, String(next)); } catch {}
-  return next;
-}
+// Kept as no-ops for backward compatibility; guest counters are no longer used.
+export function getGuestUsage(): number { return 0; }
+export function bumpGuestUsage(): number { return 0; }
 
 const initial: UsageStatus = {
-  used: 0, limit: GUEST_LIMIT, plan: "guest", planState: "guest",
+  used: 0, limit: 0, plan: "guest", planState: "guest",
   isGuest: true, loading: true, trialEndsAt: null, trialUsed: 0, trialLimit: 30,
 };
 

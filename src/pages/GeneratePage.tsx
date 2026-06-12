@@ -11,7 +11,7 @@ import { copyToClipboard, shareContent } from "@/lib/share";
 import { Sparkles, Copy, Share2, Heart, BookmarkPlus, RefreshCw, Check, Brain, MessageSquare, Target, AlertTriangle } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
-import { useUsage, getGuestUsage, bumpGuestUsage, GUEST_LIMIT } from "@/hooks/use-usage";
+import { useUsage } from "@/hooks/use-usage";
 import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
 import { TrialBanner } from "@/components/TrialBanner";
 import { ObjectionCard, type ObjectionAnalysis } from "@/components/ObjectionCard";
@@ -97,12 +97,18 @@ export default function GeneratePage() {
       ? (locale === "ar" ? "انتهت تجربتك المجانية. قم بالترقية للمتابعة." : "Your free trial has ended. Upgrade to continue.")
       : (locale === "ar" ? "لقد استخدمت كل الردود المتاحة في خطتك هذا الشهر. قم بالترقية للمتابعة." : "You've used all your replies for this month. Upgrade to continue.");
 
-  const guestLimitMessage = locale === "ar"
-    ? `لقد استخدمت ${GUEST_LIMIT} ردود كزائر. سجّل الدخول للحصول على المزيد.`
-    : `You've used your ${GUEST_LIMIT} guest replies. Sign in to get more.`;
+  const signInMessage = locale === "ar"
+    ? "سجّل الدخول لبدء تجربتك المجانية (7 أيام و30 رسالة)."
+    : "Sign in to start your free trial (7 days, 30 messages).";
 
   const handleGenerate = async () => {
     if (!customerMessage.trim()) return;
+
+    if (!usage.loading && usage.isGuest) {
+      setLimitReached(true);
+      setError(signInMessage);
+      return;
+    }
 
     if (!usage.loading && usage.planState === "trial_expired") {
       setLimitReached(true);
@@ -113,8 +119,8 @@ export default function GeneratePage() {
 
     if (!usage.loading && usage.used >= usage.limit && usage.limit > 0) {
       setLimitReached(true);
-      setError(usage.isGuest ? guestLimitMessage : limitMessage);
-      if (!usage.isGuest) setUpgradeOpen(true);
+      setError(limitMessage);
+      setUpgradeOpen(true);
       return;
     }
 
@@ -132,7 +138,6 @@ export default function GeneratePage() {
           tone: tone || "professional",
           customerMessage,
           language: locale,
-          guestUsage: usage.isGuest ? getGuestUsage() : undefined,
         },
       });
 
@@ -146,10 +151,10 @@ export default function GeneratePage() {
         usage.refresh();
         return;
       }
-      if (code === "USAGE_LIMIT_REACHED" || code === "TRIAL_LIMIT_REACHED" || code === "GUEST_LIMIT_REACHED") {
+      if (code === "USAGE_LIMIT_REACHED" || code === "TRIAL_LIMIT_REACHED") {
         setLimitReached(true);
-        setError(code === "GUEST_LIMIT_REACHED" ? guestLimitMessage : limitMessage);
-        if (code !== "GUEST_LIMIT_REACHED") setUpgradeOpen(true);
+        setError(limitMessage);
+        setUpgradeOpen(true);
         usage.refresh();
         return;
       }
@@ -159,8 +164,6 @@ export default function GeneratePage() {
 
       setResult(data as GenerationResult);
       setSelectedStyle("persuasive");
-
-      if (usage.isGuest) bumpGuestUsage();
       usage.refresh();
     } catch (err: any) {
       console.error("Generation error:", err);
