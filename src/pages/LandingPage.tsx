@@ -266,8 +266,13 @@ export default function LandingPage() {
       </section>
 
       <footer className="border-t border-border py-8" style={{ paddingBottom: "max(24px, env(safe-area-inset-bottom))" }}>
-        <div className="mobile-container text-center text-sm text-muted-foreground leading-relaxed break-words" dir="auto">
-          © 2026 {t.app.name}. {isAr ? "جميع الحقوق محفوظة." : "All rights reserved."}
+        <div className="mobile-container text-center text-sm text-muted-foreground leading-relaxed break-words space-y-3" dir="auto">
+          <div className="flex flex-wrap justify-center gap-4 text-xs">
+            <a href="/privacy" className="hover:text-primary">{isAr ? "الخصوصية" : "Privacy"}</a>
+            <a href="/terms" className="hover:text-primary">{isAr ? "الشروط" : "Terms"}</a>
+            <a href="/data-deletion" className="hover:text-primary">{isAr ? "حذف البيانات" : "Data Deletion"}</a>
+          </div>
+          <div>© 2026 {t.app.name}. {isAr ? "جميع الحقوق محفوظة." : "All rights reserved."}</div>
         </div>
       </footer>
 
