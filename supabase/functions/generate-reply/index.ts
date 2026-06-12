@@ -260,17 +260,36 @@ ${businessContext}
 CUSTOMER MESSAGE (reply in this language + dialect):
 """${customerMessage}"""
 
-Return: customer_concerns (1-5 short items in customer's language, max 6 words each), classification (with detectedLanguage, detectedDialect, detectedEmotion), 3 replies (soft, persuasive, directClosing) that each address most of the customer_concerns, leadTemperature, followUp (one short tip for the owner in interface language), objection_analysis.`;
+Return JSON with: customer_questions (every explicit question the customer asked, in their language — empty array if none), customer_concerns (1-5 short items, max 6 words each), customer_goals (1-3 short items), customer_context (concrete circumstances mentioned, or empty array), 3 replies (soft, persuasive, directClosing) — each MUST address every customer_question, acknowledge concerns, and honor context. Then classification, leadTemperature, followUp, objection_analysis.`;
 
     const schema = {
       type: "object",
       additionalProperties: false,
       properties: {
+        customer_questions: {
+          type: "array",
+          description: "Every explicit question the customer asked, in their language. Max 10 words each. Empty array if none.",
+          items: { type: "string" },
+          maxItems: 6,
+        },
         customer_concerns: {
           type: "array",
-          description: "1-5 short concern items extracted directly from the customer message, in the customer's language.",
+          description: "1-5 short concern items in the customer's language, max 6 words each.",
           items: { type: "string" },
           minItems: 1,
+          maxItems: 5,
+        },
+        customer_goals: {
+          type: "array",
+          description: "1-3 short items describing what the customer wants right now, in their language.",
+          items: { type: "string" },
+          minItems: 1,
+          maxItems: 3,
+        },
+        customer_context: {
+          type: "array",
+          description: "Concrete circumstances mentioned (appointment tomorrow, deadline, traveling…). Empty if none.",
+          items: { type: "string" },
           maxItems: 5,
         },
         classification: {
@@ -282,7 +301,7 @@ Return: customer_concerns (1-5 short items in customer's language, max 6 words e
             objectionType: { type: "string", enum: ["price", "hesitation", "comparison", "discount", "trust", "timing", "none"] },
             detectedLanguage: { type: "string", enum: ["ar", "en"] },
             detectedDialect: { type: "string", enum: ["egyptian", "gulf", "levantine", "formal_msa", "english", "other"] },
-            detectedEmotion: { type: "string", enum: ["angry", "confused", "interested", "curious", "excited", "disappointed", "skeptical", "neutral"] },
+            detectedEmotion: { type: "string", enum: ["angry", "confused", "interested", "curious", "excited", "disappointed", "skeptical", "neutral", "concerned", "frustrated", "urgent", "calm"] },
           },
           required: ["messageType", "customerIntent", "objectionType", "detectedLanguage", "detectedDialect", "detectedEmotion"],
         },
@@ -305,7 +324,7 @@ Return: customer_concerns (1-5 short items in customer's language, max 6 words e
           required: ["type", "strategy", "coaching_tip"],
         },
       },
-      required: ["customer_concerns", "classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
+      required: ["customer_questions", "customer_concerns", "customer_goals", "customer_context", "classification", "replies", "leadTemperature", "followUp", "objection_analysis"],
     };
 
     const promptChars = SYSTEM_PROMPT.length + userPrompt.length;
