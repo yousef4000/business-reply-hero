@@ -240,14 +240,56 @@ serve(async (req) => {
     mark("auth", tAuth);
 
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
+    const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    // Run usage check + business profile fetch in parallel to shave ~100-200ms.
+    // Run usage check + business profile fetch + RAG retrieval in parallel.
     const tParallel = performance.now();
-    const [usageRes, bpRes] = await Promise.all([
+
+    // RAG: embed the customer message, then search knowledge_chunks.
+    const ragPromise = (async (): Promise<string> => {
+      if (!LOVABLE_API_KEY) return "";
+      try {
+        const tEmbed = performance.now();
+        const er = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
+          method: "POST",
+          headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
+          body: JSON.stringify({
+            model: "google/gemini-embedding-001",
+            input: customerMessage.slice(0, 2000),
+            dimensions: 1536,
+          }),
+        });
+        if (!er.ok) {
+          console.log(`[gen ${reqId}] rag_embed_skip status=${er.status}`);
+          return "";
+        }
+        const ed = await er.json();
+        const vec = ed?.data?.[0]?.embedding;
+        if (!vec) return "";
+        console.log(`[gen ${reqId}] rag_embed: ${(performance.now() - tEmbed).toFixed(0)}ms`);
+
+        const { data: matches, error } = await admin.rpc("match_knowledge", {
+          _user_id: userId,
+          _query_embedding: vec,
+          _match_count: 5,
+        });
+        if (error || !matches?.length) return "";
+        const good = (matches as any[]).filter((m) => (m.similarity ?? 0) > 0.35);
+        if (!good.length) return "";
+        const lines = good.slice(0, 5).map((m, i) => `[${i + 1}] ${String(m.content).slice(0, 600)}`);
+        return `\n\nRETRIEVED KNOWLEDGE (top matches from this business's uploaded docs — authoritative, never contradict, never invent beyond these):\n${lines.join("\n")}`;
+      } catch (e) {
+        console.log(`[gen ${reqId}] rag_error: ${e instanceof Error ? e.message : e}`);
+        return "";
+      }
+    })();
+
+    const [usageRes, bpRes, ragBlock] = await Promise.all([
       admin.rpc("consume_reply_credit", { _user_id: userId }),
       admin.from("business_profiles").select("*").eq("user_id", userId).maybeSingle(),
+      ragPromise,
     ]);
-    mark("usage+profile(parallel)", tParallel);
+    mark("usage+profile+rag(parallel)", tParallel);
 
     const { data: usageData, error: usageErr } = usageRes;
     if (usageErr) {
@@ -267,7 +309,7 @@ serve(async (req) => {
     const bp = bpRes.data;
 
     const tBuild = performance.now();
-    const businessContext = buildBusinessContext(bp, customerMessage);
+    const businessContext = buildBusinessContext(bp, customerMessage) + (ragBlock || "");
 
     // OPERATIONAL CONTEXT — optional live case data passed by the client.
     // Accept either a string or an object of key/value pairs.
