@@ -65,7 +65,6 @@ function buildBusinessContext(bp: any, msg: string): string {
     if (val && String(val).trim()) lines.push(`- ${label}: ${String(val).trim()}`);
   };
 
-  // Always-on identity (cheap, anchors persona)
   push("Business", `${bp.business_name || "—"} (${bp.business_type || "—"})`);
   if (bp.description && (all || topics.size <= 2)) push("About", bp.description);
 
@@ -81,6 +80,24 @@ function buildBusinessContext(bp: any, msg: string): string {
   if (bp.custom_notes && all) push("Notes", bp.custom_notes);
 
   let block = `BUSINESS FACTS (authoritative — never contradict, never invent):\n${lines.join("\n")}\nIf a needed fact is missing, ask ONE focused question.`;
+
+  // Customer Service Rules — ALWAYS injected when present (safety-critical, no topic gating).
+  const csrLines: string[] = [];
+  const pushCsr = (label: string, val: any) => {
+    if (val && String(val).trim()) csrLines.push(`▸ ${label}:\n${String(val).trim()}`);
+  };
+  pushCsr("VERIFIED FACTS (safe to state confidently)", bp.verified_facts);
+  pushCsr("NEVER ASSUME (forbidden assumptions — do NOT state these unless explicitly given above)", bp.never_assume);
+  pushCsr("PREFERRED PHRASES (favor these wordings)", bp.preferred_phrases);
+  pushCsr("FORBIDDEN PHRASES (never use these wordings)", bp.forbidden_phrases);
+  pushCsr("SENSITIVE CASES (handle with extra care)", bp.sensitive_cases);
+  pushCsr("COMMON SCENARIOS (recognize and respond accordingly)", bp.common_scenarios);
+  pushCsr("FREQUENT QUESTIONS (typical customer asks)", bp.frequent_questions);
+  pushCsr("ESCALATION RULES (when to escalate to a human/manager)", bp.escalation_rules);
+  pushCsr("COMPLAINT RULES (how to handle complaints)", bp.complaint_rules);
+  if (csrLines.length) {
+    block += `\n\nCUSTOMER SERVICE RULES (authoritative — apply in EVERY reply):\n${csrLines.join("\n\n")}`;
+  }
 
   if (bp.ai_instructions && String(bp.ai_instructions).trim()) {
     block += `\n\nOWNER INSTRUCTIONS (HIGHEST PRIORITY — follow exactly, override defaults if they conflict):\n${String(bp.ai_instructions).trim()}`;
@@ -127,10 +144,21 @@ COMPLETE-ANSWER RULE (mandatory)
 The reply MUST address EVERY item in customer_questions. If 3 questions were asked, the reply touches all 3 — no skipping, no "I'll get back to you on the rest". When a fact is missing from BUSINESS FACTS, acknowledge the question and commit to confirming it (without inventing).
 
 CONTEXT PRIORITY (highest → lowest)
-  1. BUSINESS FACTS (OWNER INSTRUCTIONS block, if present, overrides everything else)
-  2. User-provided platform / goal / tone
-  3. Internal extraction above
-  4. Customer message itself
+  1. OWNER INSTRUCTIONS block (if present, overrides everything else)
+  2. CUSTOMER SERVICE RULES block (VERIFIED FACTS / NEVER ASSUME / FORBIDDEN PHRASES are HARD constraints — violating them is a critical failure)
+  3. BUSINESS FACTS
+  4. User-provided platform / goal / tone
+  5. Customer message itself (never ignored in favor of templates)
+  6. Internal extraction above
+
+CUSTOMER SERVICE RULES ENFORCEMENT (when the block is present)
+  • VERIFIED FACTS: you MAY state these confidently as true.
+  • NEVER ASSUME: you MUST NOT state, hint at, or imply any item here unless it also appears in VERIFIED FACTS or BUSINESS FACTS. Treat each item as an explicit ban (e.g. "do not assume a sample problem", "do not invent fees", "do not promise timelines").
+  • FORBIDDEN PHRASES: never use these exact wordings or close paraphrases.
+  • PREFERRED PHRASES: prefer these wordings when natural.
+  • SENSITIVE CASES / COMPLAINT RULES / ESCALATION RULES: when the customer message matches, follow them exactly (e.g. acknowledge + commit to internal follow-up + offer escalation path).
+  • COMMON SCENARIOS / FREQUENT QUESTIONS: use as ground truth for typical asks instead of guessing.
+If a customer asks something that NEVER-ASSUME forbids you to confirm, respond with a careful "we'll check and confirm" wording from PREFERRED PHRASES — never assert the forbidden item.
 
 WHATSAPP RULE
 On WhatsApp: natural, conversational, like a real employee chatting from their phone. NO corporate phrases. NO overly formal Arabic. NO robotic wording. 2–4 short sentences, 0–1 emoji max.

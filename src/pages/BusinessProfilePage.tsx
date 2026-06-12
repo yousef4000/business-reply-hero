@@ -16,6 +16,9 @@ const FIELDS = [
   "business_name", "business_type", "description", "services", "products",
   "pricing", "menu_items", "working_hours", "branches",
   "return_policy", "shipping_policy", "faqs", "custom_notes", "ai_instructions",
+  "verified_facts", "never_assume", "preferred_phrases", "forbidden_phrases",
+  "sensitive_cases", "common_scenarios", "frequent_questions",
+  "escalation_rules", "complaint_rules",
 ] as const;
 
 type FieldKey = typeof FIELDS[number];
@@ -25,6 +28,9 @@ const empty: ProfileForm = {
   business_name: "", business_type: "", description: "", services: "", products: "",
   pricing: "", menu_items: "", working_hours: "", branches: "",
   return_policy: "", shipping_policy: "", faqs: "", custom_notes: "", ai_instructions: "",
+  verified_facts: "", never_assume: "", preferred_phrases: "", forbidden_phrases: "",
+  sensitive_cases: "", common_scenarios: "", frequent_questions: "",
+  escalation_rules: "", complaint_rules: "",
   preferred_tone: "professional",
 };
 
@@ -174,6 +180,38 @@ export default function BusinessProfilePage() {
         <Field label={L.faqs}><Textarea rows={4} value={form.faqs} onChange={(e) => set("faqs", e.target.value)} className="resize-none" /></Field>
       </Section>
 
+      <Section title={L.csr_section}>
+        <p className="text-xs text-muted-foreground -mt-1">{L.csr_help}</p>
+        <Field label={L.verified_facts}>
+          <Textarea rows={3} value={form.verified_facts} onChange={(e) => set("verified_facts", e.target.value)} placeholder={L.verified_facts_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.never_assume}>
+          <Textarea rows={3} value={form.never_assume} onChange={(e) => set("never_assume", e.target.value)} placeholder={L.never_assume_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.preferred_phrases}>
+          <Textarea rows={3} value={form.preferred_phrases} onChange={(e) => set("preferred_phrases", e.target.value)} placeholder={L.preferred_phrases_ph} className="resize-none" maxLength={1000} />
+        </Field>
+        <Field label={L.forbidden_phrases}>
+          <Textarea rows={3} value={form.forbidden_phrases} onChange={(e) => set("forbidden_phrases", e.target.value)} placeholder={L.forbidden_phrases_ph} className="resize-none" maxLength={1000} />
+        </Field>
+        <Field label={L.sensitive_cases}>
+          <Textarea rows={3} value={form.sensitive_cases} onChange={(e) => set("sensitive_cases", e.target.value)} placeholder={L.sensitive_cases_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.common_scenarios}>
+          <Textarea rows={3} value={form.common_scenarios} onChange={(e) => set("common_scenarios", e.target.value)} placeholder={L.common_scenarios_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.frequent_questions}>
+          <Textarea rows={3} value={form.frequent_questions} onChange={(e) => set("frequent_questions", e.target.value)} placeholder={L.frequent_questions_ph} className="resize-none" maxLength={1500} />
+        </Field>
+        <Field label={L.escalation_rules}>
+          <Textarea rows={2} value={form.escalation_rules} onChange={(e) => set("escalation_rules", e.target.value)} placeholder={L.escalation_rules_ph} className="resize-none" maxLength={1000} />
+        </Field>
+        <Field label={L.complaint_rules}>
+          <Textarea rows={2} value={form.complaint_rules} onChange={(e) => set("complaint_rules", e.target.value)} placeholder={L.complaint_rules_ph} className="resize-none" maxLength={1000} />
+        </Field>
+      </Section>
+
+
       <Section title={L.ai_instructions_section}>
         <Field label={L.ai_instructions}>
           <Textarea
@@ -248,6 +286,26 @@ const EN = {
   ai_instructions_placeholder: "e.g. Be professional and friendly. Never promise unavailable services. Avoid medical advice. Keep WhatsApp replies short and reassuring.",
   save: "Save business profile",
   choose: "Choose",
+  csr_section: "Customer Service Rules",
+  csr_help: "These rules are injected into every AI reply. They override defaults — use them to prevent assumptions and enforce safe wording.",
+  verified_facts: "Verified facts (safe to state)",
+  verified_facts_ph: "e.g. Results are released after lab review. Customer service can track requests internally.",
+  never_assume: "Never assume",
+  never_assume_ph: "e.g. Do not assume a sample issue. Do not invent fees. Do not promise specific timelines.",
+  preferred_phrases: "Preferred phrases",
+  preferred_phrases_ph: "e.g. We'll follow up on the case. We'll check the request and get back to you.",
+  forbidden_phrases: "Forbidden phrases",
+  forbidden_phrases_ph: "e.g. 'There is a problem with the sample.' 'The result will be ready in one hour.'",
+  sensitive_cases: "Sensitive cases",
+  sensitive_cases_ph: "e.g. Delayed lab results, complaints about staff, urgent medical situations — acknowledge + escalate.",
+  common_scenarios: "Common scenarios",
+  common_scenarios_ph: "e.g. Booking changes → confirm new slot. Result delay → reassure + commit to internal check.",
+  frequent_questions: "Frequent customer questions",
+  frequent_questions_ph: "e.g. When will my result be ready? Do I need a new sample? Are there extra fees?",
+  escalation_rules: "Escalation rules",
+  escalation_rules_ph: "e.g. If the customer is angry or it's urgent, offer to connect them with the supervisor.",
+  complaint_rules: "Complaint handling rules",
+  complaint_rules_ph: "e.g. Acknowledge first, never deny, commit to a written follow-up within 24h.",
 };
 
 const AR: typeof EN = {
@@ -279,4 +337,24 @@ const AR: typeof EN = {
   ai_instructions_placeholder: "مثال: كن مهنياً وودوداً. لا تعد بخدمات غير متوفرة. تجنب النصائح الطبية. ردود واتساب قصيرة ومطمئنة.",
   save: "حفظ ملف العمل",
   choose: "اختر",
+  csr_section: "قواعد خدمة العملاء",
+  csr_help: "هذه القواعد تُحقن في كل رد للذكاء الاصطناعي. تستخدم لمنع الافتراضات وفرض صياغات آمنة.",
+  verified_facts: "حقائق مؤكدة (يسمح بذكرها)",
+  verified_facts_ph: "مثال: النتائج تظهر بعد اعتماد المختبر. خدمة العملاء تستطيع متابعة الطلبات داخلياً.",
+  never_assume: "ممنوع الافتراض",
+  never_assume_ph: "مثال: لا تفترض وجود مشكلة بالعينة. لا تخترع رسوم. لا تعد بمواعيد محددة.",
+  preferred_phrases: "عبارات مفضلة",
+  preferred_phrases_ph: "مثال: هنتابع الحالة. هنراجع الطلب ونرجع لحضرتك بأقرب تحديث.",
+  forbidden_phrases: "عبارات ممنوعة",
+  forbidden_phrases_ph: "مثال: «يوجد خطأ في العينة» — «النتيجة هتطلع خلال ساعة» إلا لو مؤكد فعلاً.",
+  sensitive_cases: "حالات حساسة",
+  sensitive_cases_ph: "مثال: تأخر النتائج، الشكاوى من الموظفين، الحالات الطبية الطارئة — تعاطف + تصعيد.",
+  common_scenarios: "سيناريوهات متكررة",
+  common_scenarios_ph: "مثال: تعديل الموعد → تأكيد الموعد الجديد. تأخر النتيجة → طمأنة + متابعة داخلية.",
+  frequent_questions: "أسئلة العملاء المتكررة",
+  frequent_questions_ph: "مثال: متى تظهر نتيجتي؟ هل أحتاج عينة جديدة؟ هل توجد رسوم إضافية؟",
+  escalation_rules: "قواعد التصعيد",
+  escalation_rules_ph: "مثال: لو العميل غاضب أو الحالة عاجلة، اعرض تحويل المحادثة للمشرف.",
+  complaint_rules: "قواعد التعامل مع الشكاوى",
+  complaint_rules_ph: "مثال: اعترف بالشكوى أولاً، لا تنفِ، والتزم بالمتابعة المكتوبة خلال 24 ساعة.",
 };
