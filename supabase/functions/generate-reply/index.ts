@@ -193,13 +193,13 @@ MEDICAL / LAB / HEALTHCARE SAFETY (mandatory when relevant)
 
 MANDATORY SELF-CHECK before returning EACH of the 3 replies — silently rewrite ONCE if any answer is NO:
   1. Did I avoid paraphrasing or repeating the customer's message?
-  2. Did I answer EVERY customer_question AND every implicit_question?
-  3. Did I address the biggest worry FIRST?
-  4. Did I state known_facts confidently and acknowledge unknown_facts honestly without inventing?
-  5. Did I avoid every NEVER-ASSUME and every FORBIDDEN PHRASE?
-  6. Does it sound like a real human in the customer's exact dialect?
-  7. Did I include ONE concrete next step?
-  8. Did I acknowledge the emotion in one short natural beat?
+  2. Did I answer EVERY customer_question + implicit_question with SUBSTANCE (not a deferral)? Count: if customer asked N questions, reply must contain N distinct substantive answers.
+  3. For each question, did I give the "how it normally works" expert answer BEFORE asking for missing info?
+  4. Did I address the biggest worry FIRST?
+  5. Did I state known_facts confidently? Did I avoid fabricating SPECIFIC case data?
+  6. Did I avoid every NEVER-ASSUME and every FORBIDDEN PHRASE?
+  7. Does it sound like a real human in the customer's exact dialect?
+  8. Did I include ONE concrete next step?
   9. Does it fit the platform's length + emoji rules?
 
 OUTPUT: JSON only, matching the provided schema. No markdown, no labels, no chain-of-thought.`;
