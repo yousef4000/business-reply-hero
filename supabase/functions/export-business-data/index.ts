@@ -28,10 +28,12 @@ serve(async (req) => {
     if (!userId) return json({ error: "AUTH_REQUIRED" }, 401);
 
     const admin = createClient(SUPABASE_URL, SERVICE_KEY);
-    const [profile, sources, consents] = await Promise.all([
+    const [profile, sources, consents, successful, style] = await Promise.all([
       admin.from("business_profiles").select("*").eq("user_id", userId).maybeSingle(),
       admin.from("knowledge_sources").select("id,source_type,title,original_name,source_url,char_count,chunk_count,status,created_at,raw_text").eq("user_id", userId),
       admin.from("user_consents").select("*").eq("user_id", userId),
+      admin.from("successful_replies").select("customer_message,reply_text,business_type,intent_tag,action,usage_count,created_at").eq("user_id", userId),
+      admin.from("user_style_signals").select("*").eq("user_id", userId).maybeSingle(),
     ]);
 
     const payload = {
@@ -41,6 +43,8 @@ serve(async (req) => {
       business_profile: profile.data || null,
       knowledge_sources: sources.data || [],
       consents: consents.data || [],
+      learned_examples: successful.data || [],
+      style_memory: style.data || null,
     };
 
     return new Response(JSON.stringify(payload, null, 2), {

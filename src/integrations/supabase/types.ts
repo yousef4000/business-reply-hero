@@ -289,6 +289,51 @@ export type Database = {
         }
         Relationships: []
       }
+      successful_replies: {
+        Row: {
+          action: string
+          business_type: string | null
+          created_at: string
+          customer_message: string
+          embedding: string | null
+          id: string
+          intent_tag: string | null
+          message_hash: string
+          reply_text: string
+          updated_at: string
+          usage_count: number
+          user_id: string
+        }
+        Insert: {
+          action: string
+          business_type?: string | null
+          created_at?: string
+          customer_message: string
+          embedding?: string | null
+          id?: string
+          intent_tag?: string | null
+          message_hash: string
+          reply_text: string
+          updated_at?: string
+          usage_count?: number
+          user_id: string
+        }
+        Update: {
+          action?: string
+          business_type?: string | null
+          created_at?: string
+          customer_message?: string
+          embedding?: string | null
+          id?: string
+          intent_tag?: string | null
+          message_hash?: string
+          reply_text?: string
+          updated_at?: string
+          usage_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
       usage_counters: {
         Row: {
           created_at: string
@@ -339,6 +384,39 @@ export type Database = {
           consent_type?: string
           id?: string
           metadata?: Json | null
+          user_id?: string
+        }
+        Relationships: []
+      }
+      user_style_signals: {
+        Row: {
+          avg_reply_length: number | null
+          avoided_phrases: Json
+          created_at: string
+          preferred_phrases: Json
+          sample_count: number
+          tone_hint: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          avg_reply_length?: number | null
+          avoided_phrases?: Json
+          created_at?: string
+          preferred_phrases?: Json
+          sample_count?: number
+          tone_hint?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          avg_reply_length?: number | null
+          avoided_phrases?: Json
+          created_at?: string
+          preferred_phrases?: Json
+          sample_count?: number
+          tone_hint?: string | null
+          updated_at?: string
           user_id?: string
         }
         Relationships: []
@@ -422,6 +500,20 @@ export type Database = {
           source_id: string
         }[]
       }
+      match_successful_replies: {
+        Args: {
+          _match_count?: number
+          _query_embedding: string
+          _user_id: string
+        }
+        Returns: {
+          customer_message: string
+          id: string
+          reply_text: string
+          similarity: number
+          usage_count: number
+        }[]
+      }
       my_usage_status: {
         Args: never
         Returns: {
@@ -438,6 +530,19 @@ export type Database = {
       plan_monthly_limit: {
         Args: { _plan: Database["public"]["Enums"]["plan_tier"] }
         Returns: number
+      }
+      record_reply_feedback: {
+        Args: {
+          _action: string
+          _business_type?: string
+          _customer_message: string
+          _embedding?: string
+          _intent_tag?: string
+          _removed_phrases?: string[]
+          _reply_text: string
+          _user_id: string
+        }
+        Returns: undefined
       }
     }
     Enums: {
