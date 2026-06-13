@@ -453,7 +453,7 @@ export default function GeneratePage() {
               <Button variant="outline" size="icon" onClick={() => handleShare(result.replies[selectedStyle])} className="h-9 w-9 shrink-0" aria-label={t.generate.share} title={t.generate.share}>
                 <Share2 className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label={t.generate.favorite} title={t.generate.favorite}>
+              <Button variant="outline" size="icon" onClick={() => handleFavorite(result.replies[selectedStyle])} className="h-9 w-9 shrink-0" aria-label={t.generate.favorite} title={t.generate.favorite}>
                 <Heart className="h-4 w-4" />
               </Button>
               <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label={t.generate.save} title={t.generate.save}>
