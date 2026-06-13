@@ -265,14 +265,15 @@ serve(async (req) => {
     const admin = createClient(SUPABASE_URL, SUPABASE_SERVICE_ROLE_KEY);
     const LOVABLE_API_KEY = Deno.env.get("LOVABLE_API_KEY");
 
-    // Run usage check + business profile fetch + RAG retrieval in parallel.
+    // Run usage check + business profile + RAG + memory layer in parallel.
+    // Single embedding call is shared between RAG (knowledge) and similar past
+    // replies (feedback learning) — no extra AI calls.
     const tParallel = performance.now();
 
-    // RAG: embed the customer message, then search knowledge_chunks.
-    const ragPromise = (async (): Promise<string> => {
-      if (!LOVABLE_API_KEY) return "";
+    const tEmbed = performance.now();
+    const embedPromise: Promise<number[] | null> = (async () => {
+      if (!LOVABLE_API_KEY) return null;
       try {
-        const tEmbed = performance.now();
         const er = await fetch("https://ai.gateway.lovable.dev/v1/embeddings", {
           method: "POST",
           headers: { Authorization: `Bearer ${LOVABLE_API_KEY}`, "Content-Type": "application/json" },
@@ -283,14 +284,23 @@ serve(async (req) => {
           }),
         });
         if (!er.ok) {
-          console.log(`[gen ${reqId}] rag_embed_skip status=${er.status}`);
-          return "";
+          console.log(`[gen ${reqId}] embed_skip status=${er.status}`);
+          return null;
         }
         const ed = await er.json();
-        const vec = ed?.data?.[0]?.embedding;
-        if (!vec) return "";
-        console.log(`[gen ${reqId}] rag_embed: ${(performance.now() - tEmbed).toFixed(0)}ms`);
+        console.log(`[gen ${reqId}] embed: ${(performance.now() - tEmbed).toFixed(0)}ms`);
+        return ed?.data?.[0]?.embedding ?? null;
+      } catch (e) {
+        console.log(`[gen ${reqId}] embed_error: ${e instanceof Error ? e.message : e}`);
+        return null;
+      }
+    })();
 
+    // RAG knowledge chunks (top 5 above 0.35 similarity)
+    const ragPromise = (async (): Promise<string> => {
+      const vec = await embedPromise;
+      if (!vec) return "";
+      try {
         const { data: matches, error } = await admin.rpc("match_knowledge", {
           _user_id: userId,
           _query_embedding: vec,
@@ -307,12 +317,60 @@ serve(async (req) => {
       }
     })();
 
-    const [usageRes, bpRes, ragBlock] = await Promise.all([
+    // Top-2 similar past replies that THIS user actually adopted (style ref)
+    const similarPromise = (async (): Promise<string> => {
+      const vec = await embedPromise;
+      if (!vec) return "";
+      try {
+        const { data: matches, error } = await admin.rpc("match_successful_replies", {
+          _user_id: userId,
+          _query_embedding: vec,
+          _match_count: 2,
+        });
+        if (error || !matches?.length) return "";
+        const good = (matches as any[]).filter((m) => (m.similarity ?? 0) > 0.55);
+        if (!good.length) return "";
+        const lines = good.map((m: any, i: number) =>
+          `[Example ${i + 1}]\nCustomer wrote: ${String(m.customer_message).slice(0, 280)}\nApproved reply: ${String(m.reply_text).slice(0, 400)}`,
+        );
+        return `\n\nSIMILAR PAST REPLIES THIS USER ALREADY ADOPTED (style + structure reference — DO NOT copy verbatim, MATCH the voice):\n${lines.join("\n\n")}`;
+      } catch (e) {
+        console.log(`[gen ${reqId}] similar_error: ${e instanceof Error ? e.message : e}`);
+        return "";
+      }
+    })();
+
+    // Lightweight style memory (one row per user, O(1))
+    const stylePromise = (async (): Promise<string> => {
+      try {
+        const { data } = await admin
+          .from("user_style_signals")
+          .select("preferred_phrases,avoided_phrases,avg_reply_length,sample_count")
+          .eq("user_id", userId)
+          .maybeSingle();
+        if (!data || (data.sample_count ?? 0) < 3) return "";
+        const pref = Array.isArray(data.preferred_phrases) ? (data.preferred_phrases as string[]).slice(-6) : [];
+        const avoid = Array.isArray(data.avoided_phrases) ? (data.avoided_phrases as string[]).slice(-6) : [];
+        const parts: string[] = [];
+        if (pref.length) parts.push(`Preferred wordings (favor this voice):\n${pref.map((p) => `• "${p}"`).join("\n")}`);
+        if (avoid.length) parts.push(`Avoided wordings (this user removed these — DO NOT use):\n${avoid.map((p) => `• "${p}"`).join("\n")}`);
+        if (data.avg_reply_length) parts.push(`Typical reply length: ~${data.avg_reply_length} chars.`);
+        if (!parts.length) return "";
+        return `\n\nUSER STYLE MEMORY (learned from this user's adopted replies — apply naturally, never mention):\n${parts.join("\n\n")}`;
+      } catch (e) {
+        console.log(`[gen ${reqId}] style_error: ${e instanceof Error ? e.message : e}`);
+        return "";
+      }
+    })();
+
+    const [usageRes, bpRes, ragBlock, similarBlock, styleBlock] = await Promise.all([
       admin.rpc("consume_reply_credit", { _user_id: userId }),
       admin.from("business_profiles").select("*").eq("user_id", userId).maybeSingle(),
       ragPromise,
+      similarPromise,
+      stylePromise,
     ]);
-    mark("usage+profile+rag(parallel)", tParallel);
+    mark("usage+profile+rag+memory(parallel)", tParallel);
 
     const { data: usageData, error: usageErr } = usageRes;
     if (usageErr) {
