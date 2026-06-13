@@ -238,16 +238,51 @@ export default function GeneratePage() {
     }
   };
 
+  // Fire-and-forget feedback so the AI learns the user's style over time.
+  const recordFeedback = (
+    action: "copied" | "favorited" | "edited_and_used",
+    finalReply: string,
+    originalReply?: string,
+  ) => {
+    if (!customerMessage.trim() || !finalReply.trim()) return;
+    try {
+      supabase.functions
+        .invoke("record-feedback", {
+          body: {
+            customer_message: customerMessage,
+            reply_text: finalReply,
+            original_reply: originalReply,
+            action,
+            business_type: businessType || undefined,
+            intent_tag: result?.classification?.messageType,
+          },
+        })
+        .catch(() => { /* ignore — non-blocking */ });
+    } catch { /* ignore */ }
+  };
+
   const handleCopy = async (text: string, style: string) => {
     const ok = await copyToClipboard(text);
     if (ok) {
       setCopiedStyle(style);
       setTimeout(() => setCopiedStyle(null), 2000);
       toast({ title: locale === "ar" ? "تم النسخ ✅" : "Copied ✅" });
+      // Detect if user edited the reply before copying (textarea-based edits aren't
+      // wired yet; for now we treat raw copy as 'copied'. Edited path will use the
+      // textarea hook below when we add it.)
+      recordFeedback("copied", text);
     }
   };
 
-  const handleShare = async (text: string) => { await shareContent(text, t.app.name); };
+  const handleShare = async (text: string) => {
+    await shareContent(text, t.app.name);
+    recordFeedback("copied", text);
+  };
+
+  const handleFavorite = (text: string) => {
+    recordFeedback("favorited", text);
+    toast({ title: locale === "ar" ? "تمت الإضافة للمفضلة ⭐" : "Added to favorites ⭐" });
+  };
 
   const cls = classificationLabels[locale];
   const styleLabels = replyStyleLabels[locale];
