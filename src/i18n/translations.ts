@@ -102,7 +102,7 @@ export const translations = {
   },
   ar: {
     app: { name: "سمارت ريبلاي AI", tagline: "ردود ذكية بالذكاء الاصطناعي لعملك" },
-    nav: { home: "الرئيسية", generate: "إنشاء", history: "السجل", favorites: "المفضلة", settings: "الإعدادات", business: "عملي", dna: "الهوية" },
+    nav: { home: "الرئيسية", generate: "إنشاء", history: "السجل", favorites: "المفضلة", settings: "الإعدادات", business: "عملي", dna: "الهوية", analytics: "التحليلات" },
     landing: {
       hero: "اصنع ردوداً مثالية لعملائك في ثوانٍ",
       heroSub: "ردود مدعومة بالذكاء الاصطناعي لواتساب وإنستغرام وماسنجر والبريد الإلكتروني. مصممة للأعمال الصغيرة.",
