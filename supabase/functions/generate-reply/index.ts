@@ -452,7 +452,7 @@ serve(async (req) => {
     const bp = bpRes.data;
 
     const tBuild = performance.now();
-    const businessContext = buildBusinessContext(bp, customerMessage) + (ragBlock || "") + (similarBlock || "") + (styleBlock || "");
+    const businessContext = buildBusinessContext(bp, customerMessage) + (ragBlock || "") + (similarBlock || "") + (styleBlock || "") + (outcomesBlock || "");
 
     // OPERATIONAL CONTEXT — optional live case data passed by the client.
     // Accept either a string or an object of key/value pairs.
