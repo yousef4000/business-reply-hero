@@ -424,15 +424,54 @@ serve(async (req) => {
       }
     })();
 
-    const [usageRes, bpRes, ragBlock, similarBlock, styleBlock, outcomesBlock] = await Promise.all([
+    // Winning Replies Library — user-curated, highest-priority templates.
+    // These are explicitly saved by the user, so they outrank passive feedback.
+    const winningPromise = (async (): Promise<{ block: string; ids: string[] }> => {
+      const vec = await embedPromise;
+      if (!vec) return { block: "", ids: [] };
+      try {
+        const { data: matches, error } = await admin.rpc("match_winning_replies", {
+          _user_id: userId,
+          _query_embedding: vec,
+          _match_count: 3,
+        });
+        if (error || !matches?.length) return { block: "", ids: [] };
+        const good = (matches as any[]).filter((m) => (m.similarity ?? 0) > 0.4);
+        if (!good.length) return { block: "", ids: [] };
+        const lines = good.map((m: any, i: number) => {
+          const meta: string[] = [];
+          if (m.objection_type && m.objection_type !== "none") meta.push(`objection=${m.objection_type}`);
+          if (m.customer_intent) meta.push(`intent=${String(m.customer_intent).slice(0, 60)}`);
+          if (m.industry) meta.push(`industry=${m.industry}`);
+          const metaStr = meta.length ? ` (${meta.join(" · ")})` : "";
+          const cm = m.customer_message ? `\nCustomer wrote: ${String(m.customer_message).slice(0, 220)}` : "";
+          return `[Template ${i + 1}${metaStr}]${cm}\nReply: ${String(m.reply_text).slice(0, 500)}`;
+        });
+        return {
+          block: `\n\nWINNING REPLIES LIBRARY (user-curated PROVEN templates — HIGHEST PRIORITY: when a template clearly fits this customer's situation, base your reply on its structure, framing, and tone. Adapt wording to match the customer's language/dialect — do NOT copy verbatim):\n${lines.join("\n\n")}`,
+          ids: good.map((m: any) => m.id).filter(Boolean),
+        };
+      } catch (e) {
+        console.log(`[gen ${reqId}] winning_error: ${e instanceof Error ? e.message : e}`);
+        return { block: "", ids: [] };
+      }
+    })();
+
+    const [usageRes, bpRes, ragBlock, similarBlock, styleBlock, outcomesBlock, winning] = await Promise.all([
       admin.rpc("consume_reply_credit", { _user_id: userId }),
       admin.from("business_profiles").select("*").eq("user_id", userId).maybeSingle(),
       ragPromise,
       similarPromise,
       stylePromise,
       outcomesPromise,
+      winningPromise,
     ]);
-    mark("usage+profile+rag+memory+outcomes(parallel)", tParallel);
+    mark("usage+profile+rag+memory+outcomes+winning(parallel)", tParallel);
+
+    // Fire-and-forget: bump usage_count for the winning replies we surfaced.
+    if (winning.ids.length) {
+      Promise.all(winning.ids.map((id) => admin.rpc("bump_winning_reply_usage", { _id: id }))).catch(() => {});
+    }
 
     const { data: usageData, error: usageErr } = usageRes;
     if (usageErr) {
@@ -452,7 +491,7 @@ serve(async (req) => {
     const bp = bpRes.data;
 
     const tBuild = performance.now();
-    const businessContext = buildBusinessContext(bp, customerMessage) + (ragBlock || "") + (similarBlock || "") + (styleBlock || "") + (outcomesBlock || "");
+    const businessContext = buildBusinessContext(bp, customerMessage) + (winning.block || "") + (ragBlock || "") + (similarBlock || "") + (styleBlock || "") + (outcomesBlock || "");
 
     // OPERATIONAL CONTEXT — optional live case data passed by the client.
     // Accept either a string or an object of key/value pairs.

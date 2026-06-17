@@ -15,6 +15,7 @@ import BusinessProfilePage from "./pages/BusinessProfilePage";
 import BusinessDNAPage from "./pages/BusinessDNAPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import AnalyticsPage from "./pages/AnalyticsPage";
+import WinningRepliesPage from "./pages/WinningRepliesPage";
 import SignInPage from "./pages/SignInPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
@@ -45,6 +46,7 @@ const App = () => (
               <Route path="business-dna" element={<BusinessDNAPage />} />
               <Route path="knowledge" element={<KnowledgeBasePage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="library" element={<WinningRepliesPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

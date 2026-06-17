@@ -3,7 +3,7 @@ export type Locale = "en" | "ar";
 export const translations = {
   en: {
     app: { name: "Smart Reply AI", tagline: "AI-powered customer replies for your business" },
-    nav: { home: "Home", generate: "Generate", history: "History", favorites: "Favorites", settings: "Settings", business: "Business", dna: "DNA", analytics: "Insights" },
+    nav: { home: "Home", generate: "Generate", history: "History", favorites: "Favorites", settings: "Settings", business: "Business", dna: "DNA", analytics: "Insights", library: "Library" },
     landing: {
       hero: "Craft Perfect Customer Replies in Seconds",
       heroSub: "AI-powered replies for WhatsApp, Instagram, Messenger, email, and more. Built for small businesses.",
@@ -102,7 +102,7 @@ export const translations = {
   },
   ar: {
     app: { name: "سمارت ريبلاي AI", tagline: "ردود ذكية بالذكاء الاصطناعي لعملك" },
-    nav: { home: "الرئيسية", generate: "إنشاء", history: "السجل", favorites: "المفضلة", settings: "الإعدادات", business: "عملي", dna: "الهوية", analytics: "التحليلات" },
+    nav: { home: "الرئيسية", generate: "إنشاء", history: "السجل", favorites: "المفضلة", settings: "الإعدادات", business: "عملي", dna: "الهوية", analytics: "التحليلات", library: "المكتبة" },
     landing: {
       hero: "اصنع ردوداً مثالية لعملائك في ثوانٍ",
       heroSub: "ردود مدعومة بالذكاء الاصطناعي لواتساب وإنستغرام وماسنجر والبريد الإلكتروني. مصممة للأعمال الصغيرة.",

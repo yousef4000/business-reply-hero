@@ -13,6 +13,7 @@ import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUsage } from "@/hooks/use-usage";
 import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
+import { SaveWinningReplyDialog } from "@/components/SaveWinningReplyDialog";
 import { TrialBanner } from "@/components/TrialBanner";
 import { ObjectionCard, type ObjectionAnalysis } from "@/components/ObjectionCard";
 import { BUSINESS_TYPES, BUSINESS_TYPE_LABELS, getTemplatesFor } from "@/lib/templates";
@@ -75,6 +76,7 @@ export default function GeneratePage() {
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
+  const [saveOpen, setSaveOpen] = useState(false);
   const [showAllOptions, setShowAllOptions] = useState(false);
   const usage = useUsage();
 
@@ -533,7 +535,14 @@ export default function GeneratePage() {
               <Button variant="outline" size="icon" onClick={() => handleFavorite(result.replies[selectedStyle])} className="h-9 w-9 shrink-0" aria-label={t.generate.favorite} title={t.generate.favorite}>
                 <Heart className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label={t.generate.save} title={t.generate.save}>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                aria-label={locale === "ar" ? "حفظ في مكتبة الردود الناجحة" : "Save to Winning Replies Library"}
+                title={locale === "ar" ? "حفظ في مكتبة الردود الناجحة" : "Save to Winning Replies Library"}
+                onClick={() => setSaveOpen(true)}
+              >
                 <BookmarkPlus className="h-4 w-4" />
               </Button>
             </div>
@@ -613,6 +622,17 @@ export default function GeneratePage() {
         onOpenChange={setUpgradeOpen}
         plan={"pro" as PlanKey}
       />
+
+      {result && (
+        <SaveWinningReplyDialog
+          open={saveOpen}
+          onOpenChange={setSaveOpen}
+          customerMessage={customerMessage}
+          replyText={result.replies[selectedStyle]}
+          defaultObjectionType={result.classification?.objectionType}
+          defaultCustomerIntent={result.classification?.customerIntent}
+        />
+      )}
     </div>
   );
 }
