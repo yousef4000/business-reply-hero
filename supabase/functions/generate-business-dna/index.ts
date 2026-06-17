@@ -148,7 +148,7 @@ Output strict JSON only.`;
       body: JSON.stringify({
         model: "google/gemini-2.5-flash",
         messages: [{ role: "system", content: sys }, { role: "user", content: user }],
-        response_format: { type: "json_schema", json_schema: { name: "business_dna", strict: true, schema } },
+        response_format: { type: "json_object" },
       }),
     });
     if (!r.ok) {
