@@ -292,6 +292,36 @@ export default function GeneratePage() {
     toast({ title: locale === "ar" ? "تمت الإضافة للمفضلة ⭐" : "Added to favorites ⭐" });
   };
 
+  // Smart Memory — Did this reply work? Stores success/failure with full context.
+  const recordOutcome = (outcome: "success" | "failure") => {
+    if (!result || !customerMessage.trim()) return;
+    setOutcomeSent(outcome);
+    try {
+      supabase.functions
+        .invoke("record-outcome", {
+          body: {
+            customer_message: customerMessage,
+            reply_text: result.replies[selectedStyle],
+            outcome,
+            reply_style: selectedStyle,
+            tone: tone || "professional",
+            platform: platform || "chat",
+            business_type: businessType || undefined,
+            message_type: result.classification?.messageType,
+            objection_type: result.classification?.objectionType,
+            buying_stage: result.classification?.buyingStage,
+            purchase_probability: result.classification?.purchaseProbability,
+          },
+        })
+        .catch(() => { /* ignore — non-blocking */ });
+    } catch { /* ignore */ }
+    toast({
+      title: outcome === "success"
+        ? (locale === "ar" ? "تم التعلّم من هذا الرد ✅" : "Learned from this win ✅")
+        : (locale === "ar" ? "تم تسجيل الملاحظة — سنتجنّب هذا النمط" : "Noted — we'll avoid this pattern"),
+    });
+  };
+
   const cls = classificationLabels[locale];
   const styleLabels = replyStyleLabels[locale];
 
