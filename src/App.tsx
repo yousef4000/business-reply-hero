@@ -41,6 +41,7 @@ const App = () => (
               <Route path="history" element={<HistoryPage />} />
               <Route path="favorites" element={<FavoritesPage />} />
               <Route path="business" element={<BusinessProfilePage />} />
+              <Route path="business-dna" element={<BusinessDNAPage />} />
               <Route path="knowledge" element={<KnowledgeBasePage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
