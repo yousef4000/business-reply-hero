@@ -490,6 +490,54 @@ export type Database = {
         }
         Relationships: []
       }
+      winning_replies: {
+        Row: {
+          created_at: string
+          customer_intent: string | null
+          customer_message: string | null
+          embedding: string | null
+          id: string
+          industry: string | null
+          objection_type: string | null
+          reply_text: string
+          tags: string[]
+          title: string | null
+          updated_at: string
+          usage_count: number
+          user_id: string
+        }
+        Insert: {
+          created_at?: string
+          customer_intent?: string | null
+          customer_message?: string | null
+          embedding?: string | null
+          id?: string
+          industry?: string | null
+          objection_type?: string | null
+          reply_text: string
+          tags?: string[]
+          title?: string | null
+          updated_at?: string
+          usage_count?: number
+          user_id: string
+        }
+        Update: {
+          created_at?: string
+          customer_intent?: string | null
+          customer_message?: string | null
+          embedding?: string | null
+          id?: string
+          industry?: string | null
+          objection_type?: string | null
+          reply_text?: string
+          tags?: string[]
+          title?: string | null
+          updated_at?: string
+          usage_count?: number
+          user_id?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -509,6 +557,7 @@ export type Database = {
         }
         Returns: undefined
       }
+      bump_winning_reply_usage: { Args: { _id: string }; Returns: undefined }
       consume_reply_credit: {
         Args: { _user_id: string }
         Returns: {
@@ -597,6 +646,24 @@ export type Database = {
           id: string
           reply_text: string
           similarity: number
+          usage_count: number
+        }[]
+      }
+      match_winning_replies: {
+        Args: {
+          _match_count?: number
+          _query_embedding: string
+          _user_id: string
+        }
+        Returns: {
+          customer_intent: string
+          customer_message: string
+          id: string
+          industry: string
+          objection_type: string
+          reply_text: string
+          similarity: number
+          title: string
           usage_count: number
         }[]
       }
