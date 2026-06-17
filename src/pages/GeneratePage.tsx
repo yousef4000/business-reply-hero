@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LeadBadge } from "@/components/LeadBadge";
 import { copyToClipboard, shareContent } from "@/lib/share";
-import { Sparkles, Copy, Share2, Heart, BookmarkPlus, RefreshCw, Check, Brain, MessageSquare, Target, AlertTriangle } from "lucide-react";
+import { Sparkles, Copy, Share2, Heart, BookmarkPlus, RefreshCw, Check, Brain, MessageSquare, Target, AlertTriangle, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUsage } from "@/hooks/use-usage";
