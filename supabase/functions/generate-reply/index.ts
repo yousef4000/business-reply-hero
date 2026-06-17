@@ -394,14 +394,45 @@ serve(async (req) => {
       }
     })();
 
-    const [usageRes, bpRes, ragBlock, similarBlock, styleBlock] = await Promise.all([
+    // Smart Memory — top similar past outcomes (success + failure) so the AI
+    // learns what works for THIS user. Uses the same shared embedding.
+    const outcomesPromise = (async (): Promise<string> => {
+      const vec = await embedPromise;
+      if (!vec) return "";
+      try {
+        const { data: matches, error } = await admin.rpc("match_reply_outcomes", {
+          _user_id: userId,
+          _query_embedding: vec,
+          _match_count: 4,
+        });
+        if (error || !matches?.length) return "";
+        const good = (matches as any[]).filter((m) => (m.similarity ?? 0) > 0.5);
+        if (!good.length) return "";
+        const wins = good.filter((m) => m.outcome === "success").slice(0, 2);
+        const losses = good.filter((m) => m.outcome === "failure").slice(0, 2);
+        const parts: string[] = [];
+        if (wins.length) {
+          parts.push(`PROVEN WINS (this user marked these as SUCCESS for similar messages — emulate the structure + tone):\n${wins.map((m: any, i: number) => `[Win ${i + 1}] ${String(m.reply_text).slice(0, 400)}`).join("\n\n")}`);
+        }
+        if (losses.length) {
+          parts.push(`KNOWN MISSES (this user marked these as FAILURE for similar messages — do NOT reproduce this approach):\n${losses.map((m: any, i: number) => `[Miss ${i + 1}] ${String(m.reply_text).slice(0, 300)}`).join("\n\n")}`);
+        }
+        return parts.length ? `\n\nSMART MEMORY — outcome-tested patterns from this user's history:\n${parts.join("\n\n")}` : "";
+      } catch (e) {
+        console.log(`[gen ${reqId}] outcomes_error: ${e instanceof Error ? e.message : e}`);
+        return "";
+      }
+    })();
+
+    const [usageRes, bpRes, ragBlock, similarBlock, styleBlock, outcomesBlock] = await Promise.all([
       admin.rpc("consume_reply_credit", { _user_id: userId }),
       admin.from("business_profiles").select("*").eq("user_id", userId).maybeSingle(),
       ragPromise,
       similarPromise,
       stylePromise,
+      outcomesPromise,
     ]);
-    mark("usage+profile+rag+memory(parallel)", tParallel);
+    mark("usage+profile+rag+memory+outcomes(parallel)", tParallel);
 
     const { data: usageData, error: usageErr } = usageRes;
     if (usageErr) {
@@ -421,7 +452,7 @@ serve(async (req) => {
     const bp = bpRes.data;
 
     const tBuild = performance.now();
-    const businessContext = buildBusinessContext(bp, customerMessage) + (ragBlock || "") + (similarBlock || "") + (styleBlock || "");
+    const businessContext = buildBusinessContext(bp, customerMessage) + (ragBlock || "") + (similarBlock || "") + (styleBlock || "") + (outcomesBlock || "");
 
     // OPERATIONAL CONTEXT — optional live case data passed by the client.
     // Accept either a string or an object of key/value pairs.

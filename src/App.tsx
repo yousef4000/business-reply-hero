@@ -14,6 +14,7 @@ import SettingsPage from "./pages/SettingsPage";
 import BusinessProfilePage from "./pages/BusinessProfilePage";
 import BusinessDNAPage from "./pages/BusinessDNAPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
+import AnalyticsPage from "./pages/AnalyticsPage";
 import SignInPage from "./pages/SignInPage";
 import PrivacyPage from "./pages/PrivacyPage";
 import TermsPage from "./pages/TermsPage";
@@ -43,6 +44,7 @@ const App = () => (
               <Route path="business" element={<BusinessProfilePage />} />
               <Route path="business-dna" element={<BusinessDNAPage />} />
               <Route path="knowledge" element={<KnowledgeBasePage />} />
+              <Route path="analytics" element={<AnalyticsPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />

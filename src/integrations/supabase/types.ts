@@ -268,6 +268,60 @@ export type Database = {
         }
         Relationships: []
       }
+      reply_outcomes: {
+        Row: {
+          business_type: string | null
+          buying_stage: string | null
+          created_at: string
+          customer_message: string
+          embedding: string | null
+          id: string
+          message_type: string | null
+          objection_type: string | null
+          outcome: string
+          platform: string | null
+          purchase_probability: number | null
+          reply_style: string | null
+          reply_text: string
+          tone: string | null
+          user_id: string
+        }
+        Insert: {
+          business_type?: string | null
+          buying_stage?: string | null
+          created_at?: string
+          customer_message: string
+          embedding?: string | null
+          id?: string
+          message_type?: string | null
+          objection_type?: string | null
+          outcome: string
+          platform?: string | null
+          purchase_probability?: number | null
+          reply_style?: string | null
+          reply_text: string
+          tone?: string | null
+          user_id: string
+        }
+        Update: {
+          business_type?: string | null
+          buying_stage?: string | null
+          created_at?: string
+          customer_message?: string
+          embedding?: string | null
+          id?: string
+          message_type?: string | null
+          objection_type?: string | null
+          outcome?: string
+          platform?: string | null
+          purchase_probability?: number | null
+          reply_style?: string | null
+          reply_text?: string
+          tone?: string | null
+          user_id?: string
+        }
+        Relationships: []
+      }
       subscriptions: {
         Row: {
           created_at: string
@@ -489,6 +543,7 @@ export type Database = {
           isSetofReturn: false
         }
       }
+      get_reply_analytics: { Args: { _user_id: string }; Returns: Json }
       get_usage_status: {
         Args: { _user_id: string }
         Returns: {
@@ -513,6 +568,22 @@ export type Database = {
           id: string
           similarity: number
           source_id: string
+        }[]
+      }
+      match_reply_outcomes: {
+        Args: {
+          _match_count?: number
+          _query_embedding: string
+          _user_id: string
+        }
+        Returns: {
+          customer_message: string
+          id: string
+          outcome: string
+          reply_style: string
+          reply_text: string
+          similarity: number
+          tone: string
         }[]
       }
       match_successful_replies: {

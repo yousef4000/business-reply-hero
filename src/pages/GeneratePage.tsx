@@ -8,7 +8,7 @@ import { Label } from "@/components/ui/label";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { LeadBadge } from "@/components/LeadBadge";
 import { copyToClipboard, shareContent } from "@/lib/share";
-import { Sparkles, Copy, Share2, Heart, BookmarkPlus, RefreshCw, Check, Brain, MessageSquare, Target, AlertTriangle } from "lucide-react";
+import { Sparkles, Copy, Share2, Heart, BookmarkPlus, RefreshCw, Check, Brain, MessageSquare, Target, AlertTriangle, ThumbsUp, ThumbsDown } from "lucide-react";
 import { useToast } from "@/hooks/use-toast";
 import { supabase } from "@/integrations/supabase/client";
 import { useUsage } from "@/hooks/use-usage";
@@ -71,6 +71,7 @@ export default function GeneratePage() {
   const [copiedStyle, setCopiedStyle] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<"soft" | "persuasive" | "directClosing">("persuasive");
   const [result, setResult] = useState<GenerationResult | null>(null);
+  const [outcomeSent, setOutcomeSent] = useState<"success" | "failure" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
@@ -134,6 +135,7 @@ export default function GeneratePage() {
     setError(null);
     setLimitReached(false);
     setResult(null);
+    setOutcomeSent(null);
 
     // Direct fetch with a hard abort — avoids supabase-js invoke() hanging
     // forever on a stuck auth-session lock (request never even gets sent).
@@ -288,6 +290,36 @@ export default function GeneratePage() {
   const handleFavorite = (text: string) => {
     recordFeedback("favorited", text);
     toast({ title: locale === "ar" ? "تمت الإضافة للمفضلة ⭐" : "Added to favorites ⭐" });
+  };
+
+  // Smart Memory — Did this reply work? Stores success/failure with full context.
+  const recordOutcome = (outcome: "success" | "failure") => {
+    if (!result || !customerMessage.trim()) return;
+    setOutcomeSent(outcome);
+    try {
+      supabase.functions
+        .invoke("record-outcome", {
+          body: {
+            customer_message: customerMessage,
+            reply_text: result.replies[selectedStyle],
+            outcome,
+            reply_style: selectedStyle,
+            tone: tone || "professional",
+            platform: platform || "chat",
+            business_type: businessType || undefined,
+            message_type: result.classification?.messageType,
+            objection_type: result.classification?.objectionType,
+            buying_stage: result.classification?.buyingStage,
+            purchase_probability: result.classification?.purchaseProbability,
+          },
+        })
+        .catch(() => { /* ignore — non-blocking */ });
+    } catch { /* ignore */ }
+    toast({
+      title: outcome === "success"
+        ? (locale === "ar" ? "تم التعلّم من هذا الرد ✅" : "Learned from this win ✅")
+        : (locale === "ar" ? "تم تسجيل الملاحظة — سنتجنّب هذا النمط" : "Noted — we'll avoid this pattern"),
+    });
   };
 
   const cls = classificationLabels[locale];
@@ -506,6 +538,44 @@ export default function GeneratePage() {
               </Button>
             </div>
           </div>
+
+          {/* Smart Memory — Success / Failure feedback */}
+          <div className="rounded-xl border border-border bg-muted/40 p-3 sm:p-4 space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground">
+              {locale === "ar" ? "هل نجح هذا الرد مع العميل؟" : "Did this reply work?"}
+            </p>
+            {outcomeSent ? (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                {outcomeSent === "success" ? (
+                  <><ThumbsUp className="h-3.5 w-3.5 text-success" />{locale === "ar" ? "تم تسجيل نجاح — سيتعلم الذكاء الاصطناعي من هذا." : "Marked as success — the AI will learn from this."}</>
+                ) : (
+                  <><ThumbsDown className="h-3.5 w-3.5 text-destructive" />{locale === "ar" ? "تم تسجيل الملاحظة — سنتجنّب هذا النمط." : "Noted — we'll avoid this pattern."}</>
+                )}
+              </p>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5 h-9 hover:border-success hover:text-success"
+                  onClick={() => recordOutcome("success")}
+                >
+                  <ThumbsUp className="h-4 w-4" />
+                  {locale === "ar" ? "نجح" : "Success"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5 h-9 hover:border-destructive hover:text-destructive"
+                  onClick={() => recordOutcome("failure")}
+                >
+                  <ThumbsDown className="h-4 w-4" />
+                  {locale === "ar" ? "لم ينجح" : "Failure"}
+                </Button>
+              </div>
+            )}
+          </div>
+
 
           <div className="rounded-lg border border-border bg-card/50">
             <button type="button" onClick={() => setShowAllOptions((v) => !v)} className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors" aria-expanded={showAllOptions}>
