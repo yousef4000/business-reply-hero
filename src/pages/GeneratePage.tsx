@@ -44,13 +44,17 @@ const replyStyleLabels = {
 const classificationLabels = {
   en: {
     messageType: "Message Type", customerIntent: "Customer Intent", objectionType: "Objection Type",
+    buyingStage: "Buying Stage", purchaseProbability: "Purchase Probability",
     types: { objection: "Objection", inquiry: "Inquiry", complaint: "Complaint", followUp: "Follow-up", greeting: "Greeting", request: "Request", comparison: "Comparison", negotiation: "Negotiation" },
     objections: { price: "Price", hesitation: "Hesitation", comparison: "Comparison", discount: "Discount Request", trust: "Trust", timing: "Timing", none: "None" },
+    stages: { awareness: "Awareness", consideration: "Consideration", comparison: "Comparison", intent: "Intent", decision: "Decision", post_purchase: "Post-purchase", support: "Support" },
   },
   ar: {
     messageType: "نوع الرسالة", customerIntent: "نية العميل", objectionType: "نوع الاعتراض",
+    buyingStage: "مرحلة الشراء", purchaseProbability: "احتمالية الشراء",
     types: { objection: "اعتراض", inquiry: "استفسار", complaint: "شكوى", followUp: "متابعة", greeting: "تحية", request: "طلب", comparison: "مقارنة", negotiation: "تفاوض" },
     objections: { price: "السعر", hesitation: "تردد", comparison: "مقارنة", discount: "طلب خصم", trust: "ثقة", timing: "توقيت", none: "لا يوجد" },
+    stages: { awareness: "وعي", consideration: "تفكير", comparison: "مقارنة", intent: "نية شراء", decision: "قرار", post_purchase: "ما بعد الشراء", support: "دعم" },
   },
 };
 
