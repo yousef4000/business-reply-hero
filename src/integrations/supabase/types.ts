@@ -18,6 +18,7 @@ export type Database = {
         Row: {
           ai_instructions: string | null
           branches: string | null
+          business_dna: Json | null
           business_name: string | null
           business_type: string | null
           common_scenarios: string | null
@@ -25,6 +26,8 @@ export type Database = {
           created_at: string
           custom_notes: string | null
           description: string | null
+          dna_edited_at: string | null
+          dna_generated_at: string | null
           escalation_rules: string | null
           faqs: string | null
           forbidden_phrases: string | null
@@ -41,14 +44,17 @@ export type Database = {
           sensitive_cases: string | null
           services: string | null
           shipping_policy: string | null
+          social_links: Json | null
           updated_at: string
           user_id: string
           verified_facts: string | null
+          website_url: string | null
           working_hours: string | null
         }
         Insert: {
           ai_instructions?: string | null
           branches?: string | null
+          business_dna?: Json | null
           business_name?: string | null
           business_type?: string | null
           common_scenarios?: string | null
@@ -56,6 +62,8 @@ export type Database = {
           created_at?: string
           custom_notes?: string | null
           description?: string | null
+          dna_edited_at?: string | null
+          dna_generated_at?: string | null
           escalation_rules?: string | null
           faqs?: string | null
           forbidden_phrases?: string | null
@@ -72,14 +80,17 @@ export type Database = {
           sensitive_cases?: string | null
           services?: string | null
           shipping_policy?: string | null
+          social_links?: Json | null
           updated_at?: string
           user_id: string
           verified_facts?: string | null
+          website_url?: string | null
           working_hours?: string | null
         }
         Update: {
           ai_instructions?: string | null
           branches?: string | null
+          business_dna?: Json | null
           business_name?: string | null
           business_type?: string | null
           common_scenarios?: string | null
@@ -87,6 +98,8 @@ export type Database = {
           created_at?: string
           custom_notes?: string | null
           description?: string | null
+          dna_edited_at?: string | null
+          dna_generated_at?: string | null
           escalation_rules?: string | null
           faqs?: string | null
           forbidden_phrases?: string | null
@@ -103,9 +116,11 @@ export type Database = {
           sensitive_cases?: string | null
           services?: string | null
           shipping_policy?: string | null
+          social_links?: Json | null
           updated_at?: string
           user_id?: string
           verified_facts?: string | null
+          website_url?: string | null
           working_hours?: string | null
         }
         Relationships: []
