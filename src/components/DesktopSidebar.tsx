@@ -1,4 +1,4 @@
-import { Home, Sparkles, Clock, Heart, Settings, Building2 } from "lucide-react";
+import { Home, Sparkles, Clock, Heart, Settings, Building2, Dna } from "lucide-react";
 import { NavLink as RouterNavLink, useLocation } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { cn } from "@/lib/utils";
@@ -7,6 +7,7 @@ const navItems = [
   { path: "/app", icon: Home, labelKey: "home" as const },
   { path: "/app/generate", icon: Sparkles, labelKey: "generate" as const },
   { path: "/app/business", icon: Building2, labelKey: "business" as const },
+  { path: "/app/business-dna", icon: Dna, labelKey: "dna" as const },
   { path: "/app/history", icon: Clock, labelKey: "history" as const },
   { path: "/app/favorites", icon: Heart, labelKey: "favorites" as const },
   { path: "/app/settings", icon: Settings, labelKey: "settings" as const },

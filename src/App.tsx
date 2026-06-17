@@ -12,6 +12,7 @@ import HistoryPage from "./pages/HistoryPage";
 import FavoritesPage from "./pages/FavoritesPage";
 import SettingsPage from "./pages/SettingsPage";
 import BusinessProfilePage from "./pages/BusinessProfilePage";
+import BusinessDNAPage from "./pages/BusinessDNAPage";
 import KnowledgeBasePage from "./pages/KnowledgeBasePage";
 import SignInPage from "./pages/SignInPage";
 import PrivacyPage from "./pages/PrivacyPage";
@@ -40,6 +41,7 @@ const App = () => (
               <Route path="history" element={<HistoryPage />} />
               <Route path="favorites" element={<FavoritesPage />} />
               <Route path="business" element={<BusinessProfilePage />} />
+              <Route path="business-dna" element={<BusinessDNAPage />} />
               <Route path="knowledge" element={<KnowledgeBasePage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>

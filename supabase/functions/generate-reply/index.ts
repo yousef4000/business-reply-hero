@@ -103,6 +103,26 @@ function buildBusinessContext(bp: any, msg: string): string {
     block += `\n\nOWNER INSTRUCTIONS (HIGHEST PRIORITY — follow exactly, override defaults if they conflict):\n${String(bp.ai_instructions).trim()}`;
   }
 
+  // BUSINESS DNA — structured profile generated from name/description/website/socials.
+  // Always injected when present; it sets identity, audience, voice, sales style, and reply length.
+  const dna = bp.business_dna && typeof bp.business_dna === "object" ? bp.business_dna as any : null;
+  if (dna) {
+    const arr = (v: any): string => Array.isArray(v) ? v.filter(Boolean).map((s) => `  • ${String(s).trim()}`).join("\n") : "";
+    const dnaLines: string[] = [];
+    if (dna.industry) dnaLines.push(`▸ Industry: ${dna.industry}`);
+    if (dna.target_audience) dnaLines.push(`▸ Target audience: ${dna.target_audience}`);
+    if (dna.communication_style) dnaLines.push(`▸ Communication style (MATCH this voice): ${dna.communication_style}`);
+    if (dna.sales_style) dnaLines.push(`▸ Sales style: ${dna.sales_style}`);
+    if (dna.preferred_reply_length) dnaLines.push(`▸ Preferred reply length: ${dna.preferred_reply_length}`);
+    if (Array.isArray(dna.main_services) && dna.main_services.length) dnaLines.push(`▸ Main services:\n${arr(dna.main_services)}`);
+    if (Array.isArray(dna.trust_signals) && dna.trust_signals.length) dnaLines.push(`▸ Trust signals (use to reassure when relevant):\n${arr(dna.trust_signals)}`);
+    if (Array.isArray(dna.typical_questions) && dna.typical_questions.length) dnaLines.push(`▸ Typical customer questions (anticipate):\n${arr(dna.typical_questions)}`);
+    if (Array.isArray(dna.common_objections) && dna.common_objections.length) dnaLines.push(`▸ Common objections (be ready to address):\n${arr(dna.common_objections)}`);
+    if (dnaLines.length) {
+      block += `\n\nBUSINESS DNA (deep brand profile — apply implicitly to voice, framing, and assumptions; never quote verbatim):\n${dnaLines.join("\n")}`;
+    }
+  }
+
   return block;
 }
 
