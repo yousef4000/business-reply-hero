@@ -149,6 +149,17 @@ Before writing anything, silently extract:
   • unknown_facts          — things the customer asked about that are NOT in any provided context. These must be acknowledged honestly, not invented and not silently skipped.
   • detected_emotion       — concerned | frustrated | angry | confused | urgent | curious | calm | neutral | interested.
   • detected_dialect       — egyptian | gulf | levantine | formal_msa | english | other.
+  • buying_stage           — awareness | consideration | comparison | intent | decision | post_purchase | support. Pick the stage that matches the message RIGHT NOW (e.g. "كم السعر؟" + ready language = intent/decision; "إيه الفرق بينكم وبين X" = comparison; "متى تنزل نتيجتي" = post_purchase/support).
+  • purchase_probability   — integer 0-100. Calibrate honestly from signals: urgency, explicit buying language, objections being resolved, follow-up readiness, payment/booking questions. A pure complaint or vague inquiry is usually <30. A clear "أبغى أحجز الآن / how do I pay" is 80+.
+
+STRATEGIC USE OF STAGE + PROBABILITY (must shape the reply, never mentioned to the customer):
+  • awareness/consideration → educate + build trust, no closing pressure.
+  • comparison → name your differentiators concretely, address the alternative implicitly.
+  • intent → remove the last friction, offer a clear path to act.
+  • decision → close warmly with the exact next step (booking / payment / scheduling).
+  • post_purchase/support → reassure, give concrete status framing, set expectation for resolution.
+  • purchase_probability ≥ 70 → directClosing reply should explicitly invite the next concrete action.
+  • purchase_probability ≤ 30 → soft reply leads; avoid any pressure language.
 
 STEP 2 — WRITE THE REPLY (the only thing the customer will read)
 HARD RULES (violation = failure):
@@ -493,11 +504,13 @@ TASK:
             messageType: { type: "string", enum: ["objection", "inquiry", "complaint", "followUp", "greeting", "request", "comparison", "negotiation"] },
             customerIntent: { type: "string" },
             objectionType: { type: "string", enum: ["price", "hesitation", "comparison", "discount", "trust", "timing", "none"] },
+            buyingStage: { type: "string", enum: ["awareness", "consideration", "comparison", "intent", "decision", "post_purchase", "support"], description: "Where the customer sits in the buying journey RIGHT NOW based on their message." },
+            purchaseProbability: { type: "integer", minimum: 0, maximum: 100, description: "Estimated probability (0-100) this customer will purchase / convert soon, based on intent, urgency, objections, and stage signals." },
             detectedLanguage: { type: "string", enum: ["ar", "en"] },
             detectedDialect: { type: "string", enum: ["egyptian", "gulf", "levantine", "formal_msa", "english", "other"] },
             detectedEmotion: { type: "string", enum: ["angry", "confused", "interested", "curious", "excited", "disappointed", "skeptical", "neutral", "concerned", "frustrated", "urgent", "calm"] },
           },
-          required: ["messageType", "customerIntent", "objectionType", "detectedLanguage", "detectedDialect", "detectedEmotion"],
+          required: ["messageType", "customerIntent", "objectionType", "buyingStage", "purchaseProbability", "detectedLanguage", "detectedDialect", "detectedEmotion"],
         },
         replies: {
           type: "object",

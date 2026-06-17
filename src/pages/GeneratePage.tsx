@@ -24,6 +24,8 @@ interface Classification {
   messageType: string;
   customerIntent: string;
   objectionType: string;
+  buyingStage?: string;
+  purchaseProbability?: number;
 }
 
 interface GenerationResult {
@@ -42,13 +44,17 @@ const replyStyleLabels = {
 const classificationLabels = {
   en: {
     messageType: "Message Type", customerIntent: "Customer Intent", objectionType: "Objection Type",
+    buyingStage: "Buying Stage", purchaseProbability: "Purchase Probability",
     types: { objection: "Objection", inquiry: "Inquiry", complaint: "Complaint", followUp: "Follow-up", greeting: "Greeting", request: "Request", comparison: "Comparison", negotiation: "Negotiation" },
     objections: { price: "Price", hesitation: "Hesitation", comparison: "Comparison", discount: "Discount Request", trust: "Trust", timing: "Timing", none: "None" },
+    stages: { awareness: "Awareness", consideration: "Consideration", comparison: "Comparison", intent: "Intent", decision: "Decision", post_purchase: "Post-purchase", support: "Support" },
   },
   ar: {
     messageType: "نوع الرسالة", customerIntent: "نية العميل", objectionType: "نوع الاعتراض",
+    buyingStage: "مرحلة الشراء", purchaseProbability: "احتمالية الشراء",
     types: { objection: "اعتراض", inquiry: "استفسار", complaint: "شكوى", followUp: "متابعة", greeting: "تحية", request: "طلب", comparison: "مقارنة", negotiation: "تفاوض" },
     objections: { price: "السعر", hesitation: "تردد", comparison: "مقارنة", discount: "طلب خصم", trust: "ثقة", timing: "توقيت", none: "لا يوجد" },
+    stages: { awareness: "وعي", consideration: "تفكير", comparison: "مقارنة", intent: "نية شراء", decision: "قرار", post_purchase: "ما بعد الشراء", support: "دعم" },
   },
 };
 
@@ -398,33 +404,72 @@ export default function GeneratePage() {
         <div className="space-y-4 animate-slide-up">
           {result.objection_analysis && <ObjectionCard analysis={result.objection_analysis} />}
 
-          <div className="rounded-xl border border-border bg-muted/50 p-4 space-y-2">
-            <div className="flex items-center gap-2 mb-1">
-              <Brain className="h-4 w-4 text-primary" />
-              <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
-                {locale === "en" ? "AI Analysis" : "تحليل الذكاء الاصطناعي"}
-              </h3>
-            </div>
-            <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-sm">
-              <div className="flex items-center gap-2">
-                <MessageSquare className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-muted-foreground">{cls.messageType}:</span>
-                <span className="font-medium">
-                  {cls.types[result.classification.messageType as keyof typeof cls.types] || result.classification.messageType}
-                </span>
+          {(() => {
+            const prob = typeof result.classification.purchaseProbability === "number"
+              ? Math.max(0, Math.min(100, result.classification.purchaseProbability))
+              : null;
+            const probColor =
+              prob === null ? "bg-muted-foreground"
+                : prob >= 70 ? "bg-destructive"
+                : prob >= 40 ? "bg-warning"
+                : "bg-primary";
+            const stageKey = result.classification.buyingStage as keyof typeof cls.stages | undefined;
+            return (
+              <div className="rounded-xl border border-border bg-muted/50 p-4 space-y-3">
+                <div className="flex items-center gap-2">
+                  <Brain className="h-4 w-4 text-primary" />
+                  <h3 className="text-xs font-semibold text-muted-foreground uppercase tracking-wide">
+                    {locale === "en" ? "AI Analysis" : "تحليل الذكاء الاصطناعي"}
+                  </h3>
+                </div>
+
+                <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-3 gap-y-2 text-sm">
+                  <div className="flex items-center gap-2 min-w-0">
+                    <MessageSquare className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground shrink-0">{cls.messageType}:</span>
+                    <span className="font-medium truncate">
+                      {cls.types[result.classification.messageType as keyof typeof cls.types] || result.classification.messageType}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 min-w-0">
+                    <Target className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                    <span className="text-muted-foreground shrink-0">{cls.objectionType}:</span>
+                    <span className="font-medium truncate">
+                      {cls.objections[result.classification.objectionType as keyof typeof cls.objections] || result.classification.objectionType}
+                    </span>
+                  </div>
+                  {stageKey && (
+                    <div className="flex items-center gap-2 min-w-0">
+                      <Sparkles className="h-3.5 w-3.5 text-muted-foreground shrink-0" />
+                      <span className="text-muted-foreground shrink-0">{cls.buyingStage}:</span>
+                      <span className="font-medium truncate">
+                        {cls.stages[stageKey] || stageKey}
+                      </span>
+                    </div>
+                  )}
+                </div>
+
+                {prob !== null && (
+                  <div className="space-y-1.5 pt-1">
+                    <div className="flex items-center justify-between text-xs">
+                      <span className="text-muted-foreground">{cls.purchaseProbability}</span>
+                      <span className="font-semibold tabular-nums">{prob}%</span>
+                    </div>
+                    <div className="h-1.5 rounded-full bg-border overflow-hidden">
+                      <div
+                        className={`h-full ${probColor} transition-all`}
+                        style={{ width: `${prob}%` }}
+                      />
+                    </div>
+                  </div>
+                )}
+
+                <div className="text-xs text-muted-foreground border-t border-border/60 pt-2">
+                  {cls.customerIntent}: <span className="text-foreground">{result.classification.customerIntent}</span>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <Target className="h-3.5 w-3.5 text-muted-foreground" />
-                <span className="text-muted-foreground">{cls.objectionType}:</span>
-                <span className="font-medium">
-                  {cls.objections[result.classification.objectionType as keyof typeof cls.objections] || result.classification.objectionType}
-                </span>
-              </div>
-              <div className="col-span-1 sm:col-span-3 text-xs text-muted-foreground">
-                {cls.customerIntent}: <span className="text-foreground">{result.classification.customerIntent}</span>
-              </div>
-            </div>
-          </div>
+            );
+          })()}
 
           <div className="flex items-center justify-between">
             <h2 className="text-sm font-semibold">{t.generate.result}</h2>
