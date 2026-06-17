@@ -37,9 +37,14 @@ export const isBillingAvailable = () =>
 async function loadPlugin(): Promise<any | null> {
   if (!isBillingAvailable()) return null;
   try {
-    // Lazy import so web builds don't pull native code
-    const mod = await import("@capgo/capacitor-purchases");
-    return (mod as any).CapacitorPurchases ?? mod;
+    // Lazy import so web builds don't pull native code.
+    // Variable + @vite-ignore prevents Rollup from statically resolving
+    // this optional native-only plugin (which may not be installed and is
+    // not compatible with our Capacitor 8 web build).
+    const pkg = "@capgo/capacitor-purchases";
+    const mod: any = await import(/* @vite-ignore */ pkg).catch(() => null);
+    if (!mod) return null;
+    return mod.CapacitorPurchases ?? mod.default ?? mod;
   } catch (e) {
     console.warn("[billing] plugin not available", e);
     return null;
