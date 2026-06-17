@@ -71,6 +71,7 @@ export default function GeneratePage() {
   const [copiedStyle, setCopiedStyle] = useState<string | null>(null);
   const [selectedStyle, setSelectedStyle] = useState<"soft" | "persuasive" | "directClosing">("persuasive");
   const [result, setResult] = useState<GenerationResult | null>(null);
+  const [outcomeSent, setOutcomeSent] = useState<"success" | "failure" | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [limitReached, setLimitReached] = useState(false);
   const [upgradeOpen, setUpgradeOpen] = useState(false);
