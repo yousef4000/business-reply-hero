@@ -535,7 +535,14 @@ export default function GeneratePage() {
               <Button variant="outline" size="icon" onClick={() => handleFavorite(result.replies[selectedStyle])} className="h-9 w-9 shrink-0" aria-label={t.generate.favorite} title={t.generate.favorite}>
                 <Heart className="h-4 w-4" />
               </Button>
-              <Button variant="outline" size="icon" className="h-9 w-9 shrink-0" aria-label={t.generate.save} title={t.generate.save}>
+              <Button
+                variant="outline"
+                size="icon"
+                className="h-9 w-9 shrink-0"
+                aria-label={locale === "ar" ? "حفظ في مكتبة الردود الناجحة" : "Save to Winning Replies Library"}
+                title={locale === "ar" ? "حفظ في مكتبة الردود الناجحة" : "Save to Winning Replies Library"}
+                onClick={() => setSaveOpen(true)}
+              >
                 <BookmarkPlus className="h-4 w-4" />
               </Button>
             </div>
