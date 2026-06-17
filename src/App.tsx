@@ -46,6 +46,7 @@ const App = () => (
               <Route path="business-dna" element={<BusinessDNAPage />} />
               <Route path="knowledge" element={<KnowledgeBasePage />} />
               <Route path="analytics" element={<AnalyticsPage />} />
+              <Route path="library" element={<WinningRepliesPage />} />
               <Route path="settings" element={<SettingsPage />} />
             </Route>
             <Route path="*" element={<NotFound />} />
