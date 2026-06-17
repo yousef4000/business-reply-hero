@@ -24,6 +24,8 @@ interface Classification {
   messageType: string;
   customerIntent: string;
   objectionType: string;
+  buyingStage?: string;
+  purchaseProbability?: number;
 }
 
 interface GenerationResult {
