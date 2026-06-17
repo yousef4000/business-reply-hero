@@ -539,6 +539,44 @@ export default function GeneratePage() {
             </div>
           </div>
 
+          {/* Smart Memory — Success / Failure feedback */}
+          <div className="rounded-xl border border-border bg-muted/40 p-3 sm:p-4 space-y-2">
+            <p className="text-xs font-semibold text-muted-foreground">
+              {locale === "ar" ? "هل نجح هذا الرد مع العميل؟" : "Did this reply work?"}
+            </p>
+            {outcomeSent ? (
+              <p className="text-xs text-muted-foreground flex items-center gap-1.5">
+                {outcomeSent === "success" ? (
+                  <><ThumbsUp className="h-3.5 w-3.5 text-success" />{locale === "ar" ? "تم تسجيل نجاح — سيتعلم الذكاء الاصطناعي من هذا." : "Marked as success — the AI will learn from this."}</>
+                ) : (
+                  <><ThumbsDown className="h-3.5 w-3.5 text-destructive" />{locale === "ar" ? "تم تسجيل الملاحظة — سنتجنّب هذا النمط." : "Noted — we'll avoid this pattern."}</>
+                )}
+              </p>
+            ) : (
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5 h-9 hover:border-success hover:text-success"
+                  onClick={() => recordOutcome("success")}
+                >
+                  <ThumbsUp className="h-4 w-4" />
+                  {locale === "ar" ? "نجح" : "Success"}
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className="flex-1 gap-1.5 h-9 hover:border-destructive hover:text-destructive"
+                  onClick={() => recordOutcome("failure")}
+                >
+                  <ThumbsDown className="h-4 w-4" />
+                  {locale === "ar" ? "لم ينجح" : "Failure"}
+                </Button>
+              </div>
+            )}
+          </div>
+
+
           <div className="rounded-lg border border-border bg-card/50">
             <button type="button" onClick={() => setShowAllOptions((v) => !v)} className="w-full flex items-center justify-between px-3 py-2 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors" aria-expanded={showAllOptions}>
               <span>{locale === "ar" ? "عرض الخيارات الثلاثة" : "View all 3 options"}</span>
