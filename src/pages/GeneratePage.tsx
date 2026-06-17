@@ -135,6 +135,7 @@ export default function GeneratePage() {
     setError(null);
     setLimitReached(false);
     setResult(null);
+    setOutcomeSent(null);
 
     // Direct fetch with a hard abort — avoids supabase-js invoke() hanging
     // forever on a stuck auth-session lock (request never even gets sent).
