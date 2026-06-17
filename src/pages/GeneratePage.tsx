@@ -622,6 +622,17 @@ export default function GeneratePage() {
         onOpenChange={setUpgradeOpen}
         plan={"pro" as PlanKey}
       />
+
+      {result && (
+        <SaveWinningReplyDialog
+          open={saveOpen}
+          onOpenChange={setSaveOpen}
+          customerMessage={customerMessage}
+          replyText={result.replies[selectedStyle]}
+          defaultObjectionType={result.classification?.objectionType}
+          defaultCustomerIntent={result.classification?.customerIntent}
+        />
+      )}
     </div>
   );
 }
