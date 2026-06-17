@@ -1,0 +1,14 @@
+REVOKE EXECUTE ON FUNCTION public.record_reply_feedback(uuid, text, text, text, text, text, vector, text[]) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_reply_analytics(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.match_reply_outcomes(uuid, vector, integer) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.match_knowledge(uuid, vector, integer) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.match_successful_replies(uuid, vector, integer) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.match_winning_replies(uuid, vector, integer) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.bump_winning_reply_usage(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.delete_user_data(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_or_create_subscription(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.apply_verified_purchase(uuid, public.plan_tier, text, text, text, timestamptz, timestamptz, boolean, jsonb) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.consume_reply_credit(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.get_usage_status(uuid) FROM PUBLIC, anon, authenticated;
+REVOKE EXECUTE ON FUNCTION public.my_usage_status() FROM PUBLIC, anon;
+GRANT EXECUTE ON FUNCTION public.my_usage_status() TO authenticated;
