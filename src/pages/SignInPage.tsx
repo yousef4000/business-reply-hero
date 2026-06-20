@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -13,6 +13,63 @@ import { Browser } from "@capacitor/browser";
 import { App as CapApp } from "@capacitor/app";
 
 const NATIVE_AUTH_CALLBACK_URL = "app.lovable.smartreplyai://auth/callback";
+const MANAGED_NATIVE_AUTH_CALLBACK_URL = "lovable://oauth-callback";
+const SUPPORTED_NATIVE_AUTH_CALLBACKS = [NATIVE_AUTH_CALLBACK_URL, MANAGED_NATIVE_AUTH_CALLBACK_URL];
+const MANAGED_OAUTH_ORIGIN = "https://business-reply-hero.lovable.app";
+const NATIVE_OAUTH_STATE_KEY = "smartreply:native-google-oauth-state";
+const NATIVE_OAUTH_TIMEOUT_MS = 120_000;
+
+const generateOAuthState = () => {
+  if (typeof crypto !== "undefined" && crypto.getRandomValues) {
+    return Array.from(crypto.getRandomValues(new Uint8Array(16)))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+  }
+  return `${Date.now().toString(36)}-${Math.random().toString(36).slice(2)}`;
+};
+
+const buildNativeGoogleOAuthUrl = (state: string) => {
+  const params = new URLSearchParams({
+    provider: "google",
+    redirect_uri: MANAGED_NATIVE_AUTH_CALLBACK_URL,
+    state,
+    prompt: "select_account",
+  });
+  return `${MANAGED_OAUTH_ORIGIN}/~oauth/initiate?${params.toString()}`;
+};
+
+const safeAuthUrl = (url: string) => {
+  try {
+    const parsed = new URL(url);
+    [parsed.searchParams, new URLSearchParams(parsed.hash.replace(/^#/, ""))].forEach((params) => {
+      ["access_token", "refresh_token", "id_token", "code"].forEach((key) => {
+        if (params.has(key)) params.set(key, "[redacted]");
+      });
+    });
+    if (parsed.hash) {
+      const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+      ["access_token", "refresh_token", "id_token", "code"].forEach((key) => {
+        if (hashParams.has(key)) hashParams.set(key, "[redacted]");
+      });
+      parsed.hash = hashParams.toString();
+    }
+    return parsed.toString();
+  } catch {
+    return url.replace(/(access_token|refresh_token|id_token|code)=([^&#]+)/g, "$1=[redacted]");
+  }
+};
+
+const getCallbackParams = (url: string) => {
+  const parsed = new URL(url);
+  const params = new URLSearchParams(parsed.search);
+  const hashParams = new URLSearchParams(parsed.hash.replace(/^#/, ""));
+  hashParams.forEach((value, key) => params.set(key, value));
+  return params;
+};
+
+const logAndroidOAuth = (stage: string, details?: Record<string, unknown>) => {
+  console.info(`[android-oauth] ${stage}`, details ?? {});
+};
 
 const getAuthErrorMessage = (error: unknown, fallback = "Authentication failed") => {
   if (error instanceof Error) return error.message;
@@ -34,6 +91,14 @@ export default function SignInPage() {
   const [rawError, setRawError] = useState<string | null>(null);
   const [info, setInfo] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const nativeOAuthTimeoutRef = useRef<number | null>(null);
+
+  const clearNativeOAuthTimeout = () => {
+    if (nativeOAuthTimeoutRef.current) {
+      window.clearTimeout(nativeOAuthTimeoutRef.current);
+      nativeOAuthTimeoutRef.current = null;
+    }
+  };
 
   const showAuthError = (label: string, authError: unknown, fallback?: string) => {
     const msg = getAuthErrorMessage(authError, fallback);
@@ -46,13 +111,34 @@ export default function SignInPage() {
   useEffect(() => {
     if (!isNative) return;
     const handleAuthCallback = async (url: string) => {
-      console.log("Capacitor auth callback URL:", url);
+      if (!SUPPORTED_NATIVE_AUTH_CALLBACKS.some((callback) => url.startsWith(callback))) {
+        logAndroidOAuth("ignored_non_auth_url", { url: safeAuthUrl(url) });
+        return;
+      }
+      clearNativeOAuthTimeout();
+      logAndroidOAuth("callback_received", { url: safeAuthUrl(url) });
       try {
         await Browser.close();
-      } catch {}
-      const [, hash = ""] = url.split("#");
-      const query = url.includes("?") ? url.split("?")[1]?.split("#")[0] ?? "" : "";
-      const params = new URLSearchParams(hash || query);
+        logAndroidOAuth("browser_closed");
+      } catch (closeError) {
+        logAndroidOAuth("browser_close_failed", { message: getAuthErrorMessage(closeError) });
+      }
+      let params: URLSearchParams;
+      try {
+        params = getCallbackParams(url);
+      } catch (parseError) {
+        showAuthError("OAuth callback parse error:", parseError, "OAuth callback URL could not be parsed");
+        setLoading(false);
+        return;
+      }
+      const expectedState = window.sessionStorage.getItem(NATIVE_OAUTH_STATE_KEY);
+      const returnedState = params.get("state");
+      if (expectedState && returnedState && expectedState !== returnedState) {
+        showAuthError("OAuth state mismatch:", "OAuth state mismatch", "OAuth callback failed security validation");
+        setLoading(false);
+        return;
+      }
+      window.sessionStorage.removeItem(NATIVE_OAUTH_STATE_KEY);
       const callbackError = params.get("error_description") || params.get("error");
       if (callbackError) {
         showAuthError("OAuth callback error:", callbackError, "OAuth callback failed");
@@ -62,14 +148,20 @@ export default function SignInPage() {
       const access_token = params.get("access_token");
       const refresh_token = params.get("refresh_token");
       if (!access_token || !refresh_token) {
-        showAuthError("OAuth callback missing tokens:", url, "OAuth callback did not include a session");
+        logAndroidOAuth("callback_missing_tokens", {
+          hasCode: params.has("code"),
+          keys: Array.from(params.keys()),
+        });
+        showAuthError("OAuth callback missing tokens:", "OAuth callback did not include a session", "OAuth callback did not include a session");
         setLoading(false);
         return;
       }
+      logAndroidOAuth("setting_session", { hasAccessToken: true, hasRefreshToken: true });
       const { error } = await supabase.auth.setSession({ access_token, refresh_token });
       if (error) {
         showAuthError("Set session error:", error, "Could not save auth session");
       } else {
+        logAndroidOAuth("session_saved");
         setLoading(false);
         navigate("/app", { replace: true });
       }
@@ -81,6 +173,7 @@ export default function SignInPage() {
       void handleAuthCallback(url);
     });
     return () => {
+      clearNativeOAuthTimeout();
       sub.then((s) => s.remove());
     };
   }, [isNative, navigate]);
@@ -137,19 +230,27 @@ export default function SignInPage() {
     setLoading(true);
     try {
       if (isNative) {
-        const redirectTo = NATIVE_AUTH_CALLBACK_URL;
-        console.log("Google native sign-in started. Redirect URL:", redirectTo);
-        const { data, error } = await supabase.auth.signInWithOAuth({
-          provider: "google",
-          options: {
-            redirectTo,
-            skipBrowserRedirect: true,
-            queryParams: { prompt: "select_account" },
-          },
+        const state = generateOAuthState();
+        window.sessionStorage.setItem(NATIVE_OAUTH_STATE_KEY, state);
+        const oauthUrl = buildNativeGoogleOAuthUrl(state);
+        logAndroidOAuth("start", {
+          platform: Capacitor.getPlatform(),
+          callbackUrl: MANAGED_NATIVE_AUTH_CALLBACK_URL,
+          legacyCallbackUrl: NATIVE_AUTH_CALLBACK_URL,
+          brokerOrigin: MANAGED_OAUTH_ORIGIN,
         });
-        if (error) throw error;
-        if (!data?.url) throw new Error("Google OAuth did not return a login URL");
-        await Browser.open({ url: data.url, presentationStyle: "fullscreen" });
+        clearNativeOAuthTimeout();
+        nativeOAuthTimeoutRef.current = window.setTimeout(() => {
+          logAndroidOAuth("callback_timeout", { callbackUrl: MANAGED_NATIVE_AUTH_CALLBACK_URL });
+          setLoading(false);
+          setError(translateError("Google sign-in did not return to the app"));
+          setRawError(`No appUrlOpen callback received for ${MANAGED_NATIVE_AUTH_CALLBACK_URL}. Check Android deep link intent-filter and OAuth redirect settings.`);
+        }, NATIVE_OAUTH_TIMEOUT_MS);
+        await Browser.open({
+          url: oauthUrl,
+          presentationStyle: "fullscreen",
+        });
+        logAndroidOAuth("browser_opened");
         return;
       }
 
