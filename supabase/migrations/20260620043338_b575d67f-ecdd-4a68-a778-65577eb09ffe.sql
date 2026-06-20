@@ -1,0 +1,1 @@
+UPDATE public.subscriptions SET trial_ends_at = now() + interval '30 days', trial_replies_used = 0 WHERE user_id = 'e11038bd-53ff-453c-94ab-da67db810ece';
