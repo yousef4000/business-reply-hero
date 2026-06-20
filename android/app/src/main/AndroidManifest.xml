@@ -34,6 +34,16 @@
                     android:path="/callback" />
             </intent-filter>
 
+            <!-- Lovable managed OAuth native callback -->
+            <intent-filter>
+                <action android:name="android.intent.action.VIEW" />
+                <category android:name="android.intent.category.DEFAULT" />
+                <category android:name="android.intent.category.BROWSABLE" />
+                <data
+                    android:scheme="lovable"
+                    android:host="oauth-callback" />
+            </intent-filter>
+
             <!-- SHARE TARGET: receive plain text from WhatsApp, Instagram, Gmail, etc. -->
             <intent-filter>
                 <action android:name="android.intent.action.SEND" />
