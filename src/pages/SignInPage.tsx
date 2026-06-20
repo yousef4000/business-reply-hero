@@ -13,6 +13,8 @@ import { Browser } from "@capacitor/browser";
 import { App as CapApp } from "@capacitor/app";
 
 const NATIVE_AUTH_CALLBACK_URL = "app.lovable.smartreplyai://auth/callback";
+const MANAGED_NATIVE_AUTH_CALLBACK_URL = "lovable://oauth-callback";
+const SUPPORTED_NATIVE_AUTH_CALLBACKS = [NATIVE_AUTH_CALLBACK_URL, MANAGED_NATIVE_AUTH_CALLBACK_URL];
 const MANAGED_OAUTH_ORIGIN = "https://business-reply-hero.lovable.app";
 const NATIVE_OAUTH_STATE_KEY = "smartreply:native-google-oauth-state";
 const NATIVE_OAUTH_TIMEOUT_MS = 120_000;
@@ -29,7 +31,7 @@ const generateOAuthState = () => {
 const buildNativeGoogleOAuthUrl = (state: string) => {
   const params = new URLSearchParams({
     provider: "google",
-    redirect_uri: NATIVE_AUTH_CALLBACK_URL,
+    redirect_uri: MANAGED_NATIVE_AUTH_CALLBACK_URL,
     state,
     prompt: "select_account",
   });
@@ -109,7 +111,7 @@ export default function SignInPage() {
   useEffect(() => {
     if (!isNative) return;
     const handleAuthCallback = async (url: string) => {
-      if (!url.startsWith(NATIVE_AUTH_CALLBACK_URL)) {
+      if (!SUPPORTED_NATIVE_AUTH_CALLBACKS.some((callback) => url.startsWith(callback))) {
         logAndroidOAuth("ignored_non_auth_url", { url: safeAuthUrl(url) });
         return;
       }
@@ -233,15 +235,16 @@ export default function SignInPage() {
         const oauthUrl = buildNativeGoogleOAuthUrl(state);
         logAndroidOAuth("start", {
           platform: Capacitor.getPlatform(),
-          callbackUrl: NATIVE_AUTH_CALLBACK_URL,
+          callbackUrl: MANAGED_NATIVE_AUTH_CALLBACK_URL,
+          legacyCallbackUrl: NATIVE_AUTH_CALLBACK_URL,
           brokerOrigin: MANAGED_OAUTH_ORIGIN,
         });
         clearNativeOAuthTimeout();
         nativeOAuthTimeoutRef.current = window.setTimeout(() => {
-          logAndroidOAuth("callback_timeout", { callbackUrl: NATIVE_AUTH_CALLBACK_URL });
+          logAndroidOAuth("callback_timeout", { callbackUrl: MANAGED_NATIVE_AUTH_CALLBACK_URL });
           setLoading(false);
           setError(translateError("Google sign-in did not return to the app"));
-          setRawError(`No appUrlOpen callback received for ${NATIVE_AUTH_CALLBACK_URL}. Check Android deep link intent-filter and OAuth redirect settings.`);
+          setRawError(`No appUrlOpen callback received for ${MANAGED_NATIVE_AUTH_CALLBACK_URL}. Check Android deep link intent-filter and OAuth redirect settings.`);
         }, NATIVE_OAUTH_TIMEOUT_MS);
         await Browser.open({
           url: oauthUrl,
