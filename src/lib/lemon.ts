@@ -70,3 +70,36 @@ export async function openBillingPortal(): Promise<
     return { status: "error", message: msg };
   }
 }
+
+export interface PlanInfo {
+  plan: string;
+  monthlyLimit: number;
+  usedThisMonth: number;
+  remaining: number;
+  renewsAt: string | null;
+  periodStart: string | null;
+}
+
+/** Fetches authoritative plan info (including renewal date) from the backend. */
+export async function fetchPlanInfo(): Promise<PlanInfo | null> {
+  try {
+    const data = await invoke<{
+      plan: string;
+      monthlyLimit: number;
+      usedThisMonth: number;
+      remaining: number;
+      renewsAt: string | null;
+      periodStart: string | null;
+    }>("me-plan");
+    return {
+      plan: data.plan,
+      monthlyLimit: data.monthlyLimit,
+      usedThisMonth: data.usedThisMonth,
+      remaining: data.remaining,
+      renewsAt: data.renewsAt,
+      periodStart: data.periodStart,
+    };
+  } catch {
+    return null;
+  }
+}

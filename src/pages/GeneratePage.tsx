@@ -230,6 +230,25 @@ export default function GeneratePage() {
       setResult(data as GenerationResult);
       setSelectedStyle("persuasive");
       usage.refresh();
+
+      // Fire-and-forget: save the generated reply to history
+      try {
+        const { data: sess } = await supabase.auth.getSession();
+        const userId = sess.session?.user?.id;
+        if (userId) {
+          await supabase.from("reply_history").insert({
+            user_id: userId,
+            reply_text: (data as GenerationResult).replies.persuasive,
+            platform: platform || null,
+            business_type: businessType || null,
+            goal: replyGoal || null,
+            tone: tone || null,
+            objection_type: (data as GenerationResult).classification?.objectionType ?? null,
+            customer_message: customerMessage || null,
+            is_favorite: false,
+          });
+        }
+      } catch { /* non-blocking */ }
     } catch (err: any) {
       console.error("Generation error:", err);
       if (err?.name === "AbortError") {
@@ -289,9 +308,28 @@ export default function GeneratePage() {
     recordFeedback("copied", text);
   };
 
-  const handleFavorite = (text: string) => {
+  const handleFavorite = async (text: string) => {
     recordFeedback("favorited", text);
-    toast({ title: locale === "ar" ? "تمت الإضافة للمفضلة ⭐" : "Added to favorites ⭐" });
+    try {
+      const { data: sess } = await supabase.auth.getSession();
+      const userId = sess.session?.user?.id;
+      if (!userId) return;
+      const { error: insertErr } = await supabase.from("reply_history").insert({
+        user_id: userId,
+        reply_text: text,
+        platform: platform || null,
+        business_type: businessType || null,
+        goal: replyGoal || null,
+        tone: tone || null,
+        objection_type: result?.classification?.objectionType ?? null,
+        customer_message: customerMessage || null,
+        is_favorite: true,
+      });
+      if (insertErr) throw insertErr;
+      toast({ title: locale === "ar" ? "تمت الإضافة للمفضلة ⭐" : "Added to favorites ⭐" });
+    } catch {
+      toast({ title: t.common.error, variant: "destructive" });
+    }
   };
 
   // Smart Memory — Did this reply work? Stores success/failure with full context.

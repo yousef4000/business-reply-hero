@@ -1,14 +1,15 @@
+import { useState, useEffect, useCallback } from "react";
 import { useNavigate, Link } from "react-router-dom";
 import { useLanguage } from "@/i18n/LanguageContext";
 import { Button } from "@/components/ui/button";
 import { useToast } from "@/hooks/use-toast";
-import { Globe, User, Building2, CreditCard, ChevronRight, LogOut, Database, Shield, Download, Trash2, AlertTriangle } from "lucide-react";
-import { useState } from "react";
+import { Globe, User, Building2, CreditCard, ChevronRight, LogOut, Database, Shield, Download, Trash2, AlertTriangle, ExternalLink, Loader2 } from "lucide-react";
 import { UpgradeModal, type PlanKey } from "@/components/UpgradeModal";
 import { useUsage } from "@/hooks/use-usage";
 import { supabase } from "@/integrations/supabase/client";
 import { TrialBanner } from "@/components/TrialBanner";
 import { daysLeft, trialLabel } from "@/lib/trial";
+import { openBillingPortal, fetchPlanInfo, type PlanInfo } from "@/lib/lemon";
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
 
@@ -23,6 +24,41 @@ export default function SettingsPage() {
   const [confirmDeleteAccount, setConfirmDeleteAccount] = useState(false);
   const [deleteText, setDeleteText] = useState("");
   const [busy, setBusy] = useState(false);
+  const [planInfo, setPlanInfo] = useState<PlanInfo | null>(null);
+  const [portalBusy, setPortalBusy] = useState(false);
+
+  const refreshPlanInfo = useCallback(async () => {
+    const info = await fetchPlanInfo();
+    setPlanInfo(info);
+  }, []);
+
+  useEffect(() => {
+    refreshPlanInfo();
+    const { data: sub } = supabase.auth.onAuthStateChange(() => refreshPlanInfo());
+    return () => sub.subscription.unsubscribe();
+  }, [refreshPlanInfo]);
+
+  // Refresh plan info when returning from Lemon Squeezy checkout (tab regains focus)
+  useEffect(() => {
+    const handler = () => refreshPlanInfo();
+    window.addEventListener("focus", handler);
+    return () => window.removeEventListener("focus", handler);
+  }, [refreshPlanInfo]);
+
+  const handleManageBilling = async () => {
+    if (portalBusy) return;
+    setPortalBusy(true);
+    try {
+      const res = await openBillingPortal();
+      if (res.status === "none") {
+        toast({ title: ar ? "لا يوجد اشتراك نشط" : "No active subscription", variant: "default" });
+      } else if (res.status === "error") {
+        toast({ title: t.common.error, description: res.message, variant: "destructive" });
+      }
+    } finally {
+      setPortalBusy(false);
+    }
+  };
 
   const handleSignOut = async () => {
     const { error } = await supabase.auth.signOut();
@@ -129,17 +165,29 @@ export default function SettingsPage() {
       {(() => {
         const isTrial = usage.planState === "trial";
         const isExpired = usage.planState === "trial_expired";
+        const isPaid = usage.planState === "paid";
         const used = isTrial ? usage.trialUsed : usage.used;
         const lim = isTrial ? usage.trialLimit : usage.limit;
         const pct = lim > 0 ? Math.min(100, Math.round((used / lim) * 100)) : 0;
         const days = daysLeft(usage.trialEndsAt);
         const usageLine = isExpired ? (ar ? "انتهت تجربتك المجانية" : "Trial ended") : `${used} ${t.settings.of} ${lim} ${ar ? "رسالة" : "messages used"}`;
+        const renewsAt = planInfo?.renewsAt;
+        const renewFmt = renewsAt
+          ? new Date(renewsAt).toLocaleDateString(ar ? "ar-EG" : "en-US", { year: "numeric", month: "short", day: "numeric" })
+          : null;
         return (
           <div className="rounded-xl border border-border bg-card p-4 space-y-3">
             <div className="flex items-center gap-2"><CreditCard className="h-4 w-4 text-primary" /><h2 className="text-sm font-semibold">{t.settings.billing}</h2></div>
             <div className="flex items-center justify-between gap-2">
               <p className="text-sm font-medium truncate">{t.settings.currentPlan}: <span className="text-primary">{planLabel}</span></p>
-              <Button variant={isExpired ? "default" : "outline"} size="sm" onClick={() => setUpgradePlan("pro")}>{t.settings.upgrade}</Button>
+              {isPaid ? (
+                <Button variant="outline" size="sm" onClick={handleManageBilling} disabled={portalBusy} className="gap-1.5">
+                  {portalBusy ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <ExternalLink className="h-3.5 w-3.5" />}
+                  {ar ? "إدارة الاشتراك" : "Manage Billing"}
+                </Button>
+              ) : (
+                <Button variant={isExpired ? "default" : "outline"} size="sm" onClick={() => setUpgradePlan("pro")}>{t.settings.upgrade}</Button>
+              )}
             </div>
             {usage.loading ? <p className="text-xs text-muted-foreground">{t.common.loading}</p> : (
               <div className="space-y-1.5">
@@ -147,6 +195,7 @@ export default function SettingsPage() {
                 <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">{ar ? "الرسائل المستخدمة" : "Messages used"}</span><span className="font-semibold">{usageLine}</span></div>
                 {!isExpired && lim > 0 && <div className="flex items-center justify-between text-xs"><span className="text-muted-foreground">{ar ? "المتبقي" : "Remaining"}</span><span className="font-semibold">{Math.max(0, lim - used)} {ar ? "رسالة" : "messages"}</span></div>}
                 {!isExpired && lim > 0 && <div className="h-2 w-full rounded-full bg-muted overflow-hidden mt-1"><div className={`h-full rounded-full transition-all ${pct >= 90 ? "bg-destructive" : pct >= 70 ? "bg-amber-500" : "bg-primary"}`} style={{ width: `${pct}%` }} /></div>}
+                {isPaid && renewFmt && <div className="flex items-center justify-between text-xs pt-1 border-t border-border/60"><span className="text-muted-foreground">{ar ? "تاريخ التجديد" : "Renewal date"}</span><span className="font-semibold">{renewFmt}</span></div>}
               </div>
             )}
           </div>

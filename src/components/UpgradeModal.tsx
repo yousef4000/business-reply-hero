@@ -9,14 +9,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { useLanguage } from "@/i18n/LanguageContext";
-import { Clock, ShoppingBag, RotateCcw, Loader2, ShieldCheck } from "lucide-react";
+import { ShoppingBag, Loader2, ShieldCheck } from "lucide-react";
 import { toast } from "sonner";
-import {
-  isBillingAvailable,
-  purchasePlan,
-  restorePurchases,
-  type PaidPlan,
-} from "@/lib/billing";
+import { startCheckout, type PaidPlan } from "@/lib/lemon";
 
 export type PlanKey = "free" | "starter" | "pro" | "business";
 
@@ -29,115 +24,55 @@ interface UpgradeModalProps {
 export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
   const { t, locale } = useLanguage();
   const isAr = locale === "ar";
-  const [busy, setBusy] = useState<"buy" | "restore" | null>(null);
+  const [busy, setBusy] = useState(false);
 
   if (!plan) return null;
 
   const planName = t.plans[plan];
   const price = t.plans.price[plan];
   const limit = t.plans.limits[plan];
-  const billingOn = isBillingAvailable();
   const isPaidPlan = plan !== "free";
 
-  // Friendly Arabic/English error messages keyed by purchase status / code.
-  const messageFor = (status: string, raw?: string) => {
-    const map: Record<string, { ar: string; en: string }> = {
-      success: { ar: "تم تفعيل خطتك بنجاح ✅", en: "Plan activated ✅" },
-      pending: {
-        ar: "تم استلام عملية الشراء، جاري التحقق من Google Play…",
-        en: "Purchase received, verifying with Google Play…",
-      },
-      cancelled: { ar: "تم إلغاء عملية الدفع.", en: "Payment cancelled." },
-      expired: {
-        ar: "انتهت صلاحية اشتراكك. يرجى التجديد عبر Google Play.",
-        en: "Your subscription expired. Please renew via Google Play.",
-      },
-      billing_unavailable: {
-        ar: "خدمة Google Play Billing غير متوفرة على هذا الجهاز.",
-        en: "Google Play Billing is not available on this device.",
-      },
-      network: {
-        ar: "تعذر الاتصال بـ Google Play. تحقق من الإنترنت وحاول مجددًا.",
-        en: "Could not reach Google Play. Check your connection and retry.",
-      },
-      failed: {
-        ar: "تعذر إتمام الدفع. حاول مرة أخرى أو تواصل مع الدعم.",
-        en: "Payment failed. Please try again or contact support.",
-      },
-    };
-    const m = map[status] ?? map.failed;
-    return isAr ? m.ar : m.en;
-  };
-
-  const handleBuy = async () => {
-    if (!isPaidPlan) return;
-    if (!billingOn) {
-      toast(
-        isAr
-          ? "سيتم تفعيل الاشتراكات عبر Google Play قبل الإطلاق الرسمي."
-          : "Subscriptions will be enabled via Google Play before official launch.",
-      );
-      return;
-    }
-    setBusy("buy");
+  const handleCheckout = async () => {
+    if (!isPaidPlan || busy) return;
+    setBusy(true);
     try {
-      const res = await purchasePlan(plan as PaidPlan, "monthly");
+      const res = await startCheckout(plan as PaidPlan);
       switch (res.status) {
-        case "success":
-          toast.success(messageFor("success"));
-          onOpenChange(false);
+        case "redirecting":
+          toast(
+            isAr
+              ? "جارٍ تحويلك إلى صفحة الدفع…"
+              : "Redirecting you to checkout…",
+          );
           break;
-        case "pending":
-          toast(messageFor("pending"));
-          onOpenChange(false);
+        case "unauthenticated":
+          toast.error(
+            isAr ? "يرجى تسجيل الدخول أولاً." : "Please sign in first.",
+          );
           break;
-        case "cancelled":
-          toast(messageFor("cancelled"));
+        case "not_configured":
+          toast.error(
+            isAr
+              ? "الدفع غير مُفعّل بعد. تواصل مع الدعم."
+              : "Payments are not configured yet. Contact support.",
+          );
           break;
-        case "unsupported":
-          toast.error(messageFor("billing_unavailable"));
-          break;
-        default: {
-          const raw = (res as any)?.message ?? "";
-          const code = /network|timeout|offline/i.test(raw) ? "network" : "failed";
-          toast.error(messageFor(code, raw));
-        }
+        default:
+          toast.error(
+            isAr
+              ? "تعذر بدء الدفع. حاول مرة أخرى."
+              : "Could not start checkout. Please try again.",
+          );
       }
-    } catch (e: any) {
-      toast.error(messageFor("failed", e?.message));
-    } finally {
-      setBusy(null);
-    }
-  };
-
-  const handleRestore = async () => {
-    if (!billingOn) {
-      toast(
+    } catch {
+      toast.error(
         isAr
-          ? "الاستعادة متاحة فقط داخل تطبيق Android."
-          : "Restore is only available inside the Android app.",
+          ? "تعذر بدء الدفع. حاول مرة أخرى."
+          : "Could not start checkout. Please try again.",
       );
-      return;
-    }
-    setBusy("restore");
-    try {
-      const { restored, results } = await restorePurchases();
-      if (results[0]?.status === "unsupported") {
-        toast.error(messageFor("billing_unavailable"));
-      } else if (restored > 0) {
-        toast.success(
-          isAr ? "تمت استعادة مشترياتك بنجاح." : "Purchases restored.",
-        );
-        onOpenChange(false);
-      } else {
-        toast(
-          isAr
-            ? "لا توجد مشتريات للاستعادة."
-            : "No purchases to restore.",
-        );
-      }
     } finally {
-      setBusy(null);
+      setBusy(false);
     }
   };
 
@@ -149,7 +84,9 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
             {isAr ? "ترقية الخطة" : "Upgrade Plan"}
           </DialogTitle>
           <DialogDescription className="sr-only">
-            {isAr ? "تفاصيل الخطة وطرق التفعيل عبر Google Play" : "Plan details and Google Play activation"}
+            {isAr
+              ? "تفاصيل الخطة والدفع عبر Lemon Squeezy"
+              : "Plan details and Lemon Squeezy checkout"}
           </DialogDescription>
         </DialogHeader>
 
@@ -186,24 +123,20 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
         <div className="rounded-lg bg-muted p-3 text-xs text-muted-foreground leading-relaxed flex gap-2">
           <ShieldCheck className="h-4 w-4 text-primary shrink-0 mt-0.5" />
           <span>
-            {billingOn
-              ? isAr
-                ? "اشترك مباشرة عبر Google Play واستمتع بجميع المميزات فوراً. يمكنك الإلغاء من إعدادات Google Play في أي وقت."
-                : "Subscribe directly via Google Play and unlock all features instantly. Cancel anytime from Google Play settings."
-              : isAr
-                ? "سيتم تفعيل الاشتراكات عبر Google Play قبل الإطلاق الرسمي."
-                : "Subscriptions will be enabled via Google Play before official launch."}
+            {isAr
+              ? "ادفع بأمان عبر Lemon Squeezy. يمكنك الإلغاء في أي وقت من بوابة إدارة الاشتراك."
+              : "Pay securely via Lemon Squeezy. Cancel anytime from the billing portal."}
           </span>
         </div>
 
         <DialogFooter className="flex-col gap-2 sm:flex-col">
           {isPaidPlan && (
             <Button
-              onClick={handleBuy}
-              disabled={busy !== null}
+              onClick={handleCheckout}
+              disabled={busy}
               className="w-full gap-2"
             >
-              {busy === "buy" ? (
+              {busy ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
               ) : (
                 <ShoppingBag className="h-4 w-4" />
@@ -213,25 +146,10 @@ export function UpgradeModal({ open, onOpenChange, plan }: UpgradeModalProps) {
           )}
 
           <Button
-            variant="outline"
-            onClick={handleRestore}
-            disabled={busy !== null}
-            className="w-full gap-2"
-          >
-            {busy === "restore" ? (
-              <Loader2 className="h-4 w-4 animate-spin" />
-            ) : (
-              <RotateCcw className="h-4 w-4" />
-            )}
-            {isAr ? "استعادة المشتريات" : "Restore purchases"}
-          </Button>
-
-          <Button
             variant="ghost"
             onClick={() => onOpenChange(false)}
-            className="w-full gap-2"
+            className="w-full"
           >
-            <Clock className="h-4 w-4" />
             {isAr ? "لاحقًا" : "Later"}
           </Button>
         </DialogFooter>

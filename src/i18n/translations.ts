@@ -71,9 +71,9 @@ export const translations = {
       repliesPerMonth: "replies/month",
       recommended: "Most Popular",
       trialTag: "7 days free + 30 replies",
-      price: { free: "$0", starter: "$2.99", pro: "$7.99", business: "$14.99" },
+      price: { free: "$0", starter: "$5", pro: "$12", business: "$25" },
       limits: { free: "30", starter: "150", pro: "500", business: "2000" },
-      cta: { free: "Start Free Trial", starter: "Subscribe Now", pro: "Subscribe Now", business: "Contact to Upgrade" },
+      cta: { free: "Start Free Trial", starter: "Subscribe Now", pro: "Subscribe Now", business: "Subscribe Now" },
       features: {
         free: ["7-day free trial", "30 AI replies during trial", "All premium features unlocked", "Business Knowledge Base", "Smart Templates", "AI Objection Handler", "Share to Smart Reply"],
         starter: ["150 AI replies per month", "All supported platforms", "Save favorite replies", "Reply history", "Smart Templates", "Basic support"],
@@ -170,9 +170,9 @@ export const translations = {
       repliesPerMonth: "رد/شهر",
       recommended: "الأكثر شيوعاً",
       trialTag: "7 أيام مجانية + 30 رسالة",
-      price: { free: "$0", starter: "$2.99", pro: "$7.99", business: "$14.99" },
+      price: { free: "$0", starter: "$5", pro: "$12", business: "$25" },
       limits: { free: "30", starter: "150", pro: "500", business: "2000" },
-      cta: { free: "ابدأ التجربة المجانية", starter: "اشترك الآن", pro: "اشترك الآن", business: "تواصل للترقية" },
+      cta: { free: "ابدأ التجربة المجانية", starter: "اشترك الآن", pro: "اشترك الآن", business: "اشترك الآن" },
       features: {
         free: ["تجربة مجانية لمدة 7 أيام", "30 رد ذكي خلال التجربة", "كل الميزات المتقدمة مفعّلة", "قاعدة معرفة العمل", "القوالب الذكية", "مدرّب الاعتراضات بالذكاء", "مشاركة إلى Smart Reply"],
         starter: ["150 رد شهريًا", "جميع المنصات المدعومة", "حفظ الردود المفضلة", "سجل الردود", "القوالب الذكية", "دعم أساسي"],
