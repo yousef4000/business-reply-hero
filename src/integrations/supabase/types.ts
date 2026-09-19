@@ -14,6 +14,36 @@ export type Database = {
   }
   public: {
     Tables: {
+      billing_webhook_events: {
+        Row: {
+          created_at: string
+          event_key: string
+          event_name: string | null
+          id: string
+          processed_at: string
+          provider: string
+          user_id: string | null
+        }
+        Insert: {
+          created_at?: string
+          event_key: string
+          event_name?: string | null
+          id?: string
+          processed_at?: string
+          provider: string
+          user_id?: string | null
+        }
+        Update: {
+          created_at?: string
+          event_key?: string
+          event_name?: string | null
+          id?: string
+          processed_at?: string
+          provider?: string
+          user_id?: string | null
+        }
+        Relationships: []
+      }
       business_profiles: {
         Row: {
           ai_instructions: string | null
@@ -268,6 +298,54 @@ export type Database = {
         }
         Relationships: []
       }
+      reply_history: {
+        Row: {
+          business_type: string | null
+          category: string | null
+          created_at: string
+          customer_message: string | null
+          goal: string | null
+          id: string
+          is_favorite: boolean
+          objection_type: string | null
+          platform: string | null
+          reply_text: string
+          tone: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          business_type?: string | null
+          category?: string | null
+          created_at?: string
+          customer_message?: string | null
+          goal?: string | null
+          id?: string
+          is_favorite?: boolean
+          objection_type?: string | null
+          platform?: string | null
+          reply_text: string
+          tone?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          business_type?: string | null
+          category?: string | null
+          created_at?: string
+          customer_message?: string | null
+          goal?: string | null
+          id?: string
+          is_favorite?: boolean
+          objection_type?: string | null
+          platform?: string | null
+          reply_text?: string
+          tone?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
       reply_outcomes: {
         Row: {
           business_type: string | null
@@ -324,35 +402,74 @@ export type Database = {
       }
       subscriptions: {
         Row: {
+          cancelled_at: string | null
           created_at: string
+          customer_portal_url: string | null
+          ends_at: string | null
           id: string
+          last_event_at: string | null
           period_start: string
           plan: Database["public"]["Enums"]["plan_tier"]
+          provider: string | null
+          provider_customer_id: string | null
+          provider_order_id: string | null
+          provider_product_id: string | null
+          provider_status: string | null
+          provider_subscription_id: string | null
+          provider_variant_id: string | null
+          renews_at: string | null
           trial_ends_at: string | null
           trial_replies_used: number
           trial_started_at: string | null
+          update_payment_url: string | null
           updated_at: string
           user_id: string
         }
         Insert: {
+          cancelled_at?: string | null
           created_at?: string
+          customer_portal_url?: string | null
+          ends_at?: string | null
           id?: string
+          last_event_at?: string | null
           period_start?: string
           plan?: Database["public"]["Enums"]["plan_tier"]
+          provider?: string | null
+          provider_customer_id?: string | null
+          provider_order_id?: string | null
+          provider_product_id?: string | null
+          provider_status?: string | null
+          provider_subscription_id?: string | null
+          provider_variant_id?: string | null
+          renews_at?: string | null
           trial_ends_at?: string | null
           trial_replies_used?: number
           trial_started_at?: string | null
+          update_payment_url?: string | null
           updated_at?: string
           user_id: string
         }
         Update: {
+          cancelled_at?: string | null
           created_at?: string
+          customer_portal_url?: string | null
+          ends_at?: string | null
           id?: string
+          last_event_at?: string | null
           period_start?: string
           plan?: Database["public"]["Enums"]["plan_tier"]
+          provider?: string | null
+          provider_customer_id?: string | null
+          provider_order_id?: string | null
+          provider_product_id?: string | null
+          provider_status?: string | null
+          provider_subscription_id?: string | null
+          provider_variant_id?: string | null
+          renews_at?: string | null
           trial_ends_at?: string | null
           trial_replies_used?: number
           trial_started_at?: string | null
+          update_payment_url?: string | null
           updated_at?: string
           user_id?: string
         }
@@ -575,13 +692,26 @@ export type Database = {
       get_or_create_subscription: {
         Args: { _user_id: string }
         Returns: {
+          cancelled_at: string | null
           created_at: string
+          customer_portal_url: string | null
+          ends_at: string | null
           id: string
+          last_event_at: string | null
           period_start: string
           plan: Database["public"]["Enums"]["plan_tier"]
+          provider: string | null
+          provider_customer_id: string | null
+          provider_order_id: string | null
+          provider_product_id: string | null
+          provider_status: string | null
+          provider_subscription_id: string | null
+          provider_variant_id: string | null
+          renews_at: string | null
           trial_ends_at: string | null
           trial_replies_used: number
           trial_started_at: string | null
+          update_payment_url: string | null
           updated_at: string
           user_id: string
         }
